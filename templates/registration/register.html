@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Account - Personal Knowledge & Log Management System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-4">
+    <div class="col-md-7 col-lg-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <div class="stat-icon bg-blue-light mx-auto mb-2">
+                        <i class="bi bi-person-plus-fill"></i>
+                    </div>
+                    <h3 class="fw-bold">Create Free Account</h3>
+                    <p class="text-muted small">Start tracking your knowledge and daily learning logs</p>
+                </div>
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger py-2 small" role="alert">
+                            {% for error in form.non_field_errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <!-- Username -->
+                    <div class="mb-3">
+                        <label for="{{ form.username.id_for_label }}" class="form-label">Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted"><i class="bi bi-person"></i></span>
+                            <input type="text" name="{{ form.username.name }}" id="{{ form.username.id_for_label }}"
+                                   class="form-control {% if form.username.errors %}is-invalid{% endif %}"
+                                   placeholder="Choose a username"
+                                   value="{{ form.username.value|default:'' }}" required autofocus>
+                        </div>
+                        {% if form.username.errors %}
+                            <div class="invalid-feedback d-block small">
+                                {{ form.username.errors.0 }}
+                            </div>
+                        {% else %}
+                            <div class="form-text small text-muted">{{ form.username.help_text }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Email -->
+                    <div class="mb-3">
+                        <label for="{{ form.email.id_for_label }}" class="form-label">Email Address</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted"><i class="bi bi-envelope"></i></span>
+                            <input type="email" name="{{ form.email.name }}" id="{{ form.email.id_for_label }}"
+                                   class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                                   placeholder="name@example.com"
+                                   value="{{ form.email.value|default:'' }}" required>
+                        </div>
+                        {% if form.email.errors %}
+                            <div class="invalid-feedback d-block small">
+                                {{ form.email.errors.0 }}
+                            </div>
+                        {% else %}
+                            <div class="form-text small text-muted">{{ form.email.help_text }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Password -->
+                    <div class="mb-3">
+                        <label for="{{ form.password.id_for_label }}" class="form-label">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted"><i class="bi bi-lock"></i></span>
+                            <input type="password" name="{{ form.password.name }}" id="{{ form.password.id_for_label }}"
+                                   class="form-control {% if form.password.errors %}is-invalid{% endif %}"
+                                   placeholder="Create a strong password" required>
+                        </div>
+                        {% if form.password.errors %}
+                            <div class="invalid-feedback d-block small">
+                                {{ form.password.errors.0 }}
+                            </div>
+                        {% else %}
+                            <div class="form-text small text-muted">{{ form.password.help_text }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Confirm Password -->
+                    <div class="mb-4">
+                        <label for="{{ form.password_confirm.id_for_label }}" class="form-label">Confirm Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted"><i class="bi bi-shield-check"></i></span>
+                            <input type="password" name="{{ form.password_confirm.name }}" id="{{ form.password_confirm.id_for_label }}"
+                                   class="form-control {% if form.password_confirm.errors %}is-invalid{% endif %}"
+                                   placeholder="Re-enter your password" required>
+                        </div>
+                        {% if form.password_confirm.errors %}
+                            <div class="invalid-feedback d-block small">
+                                {{ form.password_confirm.errors.0 }}
+                            </div>
+                        {% else %}
+                            <div class="form-text small text-muted">{{ form.password_confirm.help_text }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-grid mb-3">
+                        <button type="submit" class="btn btn-primary btn-lg fs-6 fw-semibold shadow-sm">
+                            <i class="bi bi-person-check-fill me-1"></i> Complete Registration
+                        </button>
+                    </div>
+                </form>
+
+                <div class="text-center pt-3 border-top">
+                    <span class="text-muted small">Already have an account?</span>
+                    <a href="{% url 'learning_logs:login' %}" class="fw-semibold text-primary ms-1 text-decoration-none">Sign in here</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

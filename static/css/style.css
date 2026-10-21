@@ -1,0 +1,159 @@
+/* Personal Knowledge & Log Management System
+ * Custom Stylesheet - Professional Blue & Slate Theme
+ */
+
+:root {
+  --primary-blue: #1e40af;
+  --primary-hover: #1d4ed8;
+  --secondary-blue: #3b82f6;
+  --light-bg: #f8fafc;
+  --card-border: #e2e8f0;
+  --text-dark: #0f172a;
+  --text-muted: #64748b;
+  --accent-gold: #f59e0b;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--light-bg);
+  color: var(--text-dark);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1 0 auto;
+}
+
+/* Navbar */
+.navbar-brand {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.navbar-brand i {
+  color: #60a5fa;
+}
+
+.nav-link {
+  font-weight: 500;
+  transition: color 0.15s ease-in-out;
+}
+
+/* Cards & Surfaces */
+.card {
+  border-radius: 0.65rem;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.card-header {
+  border-bottom: 1px solid var(--card-border);
+  background-color: #ffffff;
+  font-weight: 600;
+}
+
+/* Dashboard Stat Cards */
+.stat-card {
+  border-left: 4px solid var(--primary-blue);
+  background: #ffffff;
+}
+
+.stat-card.stat-entries {
+  border-left-color: #0d9488;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.bg-blue-light {
+  background-color: #eff6ff;
+  color: var(--primary-blue);
+}
+
+.bg-teal-light {
+  background-color: #f0fdfa;
+  color: #0d9488;
+}
+
+/* Content & Typography */
+.entry-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.65;
+  color: #334155;
+  font-size: 0.975rem;
+}
+
+/* Breadcrumbs */
+.breadcrumb {
+  margin-bottom: 1.25rem;
+  padding: 0.5rem 0;
+  background-color: transparent;
+  font-size: 0.875rem;
+}
+
+.breadcrumb-item a {
+  text-decoration: none;
+  color: var(--primary-blue);
+  font-weight: 500;
+}
+
+.breadcrumb-item a:hover {
+  text-decoration: underline;
+}
+
+/* Forms */
+.form-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 0.25rem rgba(59, 130, 246, 0.15);
+}
+
+/* Footer */
+footer {
+  background-color: #0f172a;
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
+footer a {
+  color: #cbd5e1;
+  text-decoration: none;
+}
+
+footer a:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+/* Empty states */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+}
+
+.empty-state-icon {
+  font-size: 3.5rem;
+  color: #94a3b8;
+  margin-bottom: 1rem;
+}

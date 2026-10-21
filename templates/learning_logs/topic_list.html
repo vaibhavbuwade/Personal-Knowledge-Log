@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}My Topics - Personal Knowledge & Log Management System{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'learning_logs:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">My Topics</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <div>
+        <h2 class="fw-bold mb-1 text-dark d-flex align-items-center gap-2">
+            <i class="bi bi-folder2-open text-primary"></i> My Learning Topics
+            <span class="badge bg-secondary-subtle text-secondary border fs-6 rounded-pill">
+                {{ topics|length }}
+            </span>
+        </h2>
+        <p class="text-muted mb-0">Browse and manage all topics in your knowledge repository.</p>
+    </div>
+    <a href="{% url 'learning_logs:topic_create' %}" class="btn btn-primary shadow-sm">
+        <i class="bi bi-folder-plus me-1"></i> New Topic
+    </a>
+</div>
+
+{% if topics %}
+    <div class="row g-3">
+        {% for topic in topics %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 card-hover shadow-sm">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title fw-bold text-dark mb-0">
+                                <a href="{% url 'learning_logs:topic_detail' topic.id %}" class="text-decoration-none text-dark">
+                                    {{ topic.title }}
+                                </a>
+                            </h5>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">
+                                {{ topic.entries.count }} {% if topic.entries.count == 1 %}entry{% else %}entries{% endif %}
+                            </span>
+                        </div>
+
+                        <p class="card-text text-muted small flex-grow-1 mb-3">
+                            {% if topic.description %}
+                                {{ topic.description|truncatewords:25 }}
+                            {% else %}
+                                <em class="text-muted">No description provided for this topic.</em>
+                            {% endif %}
+                        </p>
+
+                        <div class="border-top pt-2 mt-auto">
+                            <div class="d-flex justify-content-between text-muted small mb-3">
+                                <span><i class="bi bi-calendar-plus me-1"></i> {{ topic.created_at|date:"M d, Y" }}</span>
+                                <span><i class="bi bi-clock-history me-1"></i> {{ topic.updated_at|timesince }} ago</span>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="{% url 'learning_logs:topic_detail' topic.id %}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye me-1"></i> View Logs
+                                </a>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'learning_logs:topic_edit' topic.id %}" class="btn btn-outline-secondary" title="Edit Topic">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'learning_logs:topic_delete' topic.id %}" class="btn btn-outline-danger" title="Delete Topic">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="card shadow-sm border-0">
+        <div class="card-body empty-state">
+            <div class="empty-state-icon text-muted">
+                <i class="bi bi-folder-plus"></i>
+            </div>
+            <h4 class="fw-bold">No Topics Created Yet</h4>
+            <p class="text-muted mb-4 col-md-6 mx-auto">
+                Topics are categories that hold your learning entries. Create topics for subjects you are studying, such as "Algorithms", "Django", "Cloud Computing", or "SQL".
+            </p>
+            <a href="{% url 'learning_logs:topic_create' %}" class="btn btn-primary btn-lg shadow-sm">
+                <i class="bi bi-folder-plus me-1"></i> Create Your First Topic
+            </a>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

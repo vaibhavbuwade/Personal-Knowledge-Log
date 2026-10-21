@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Entry - {{ entry.title }}{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'learning_logs:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'learning_logs:topic_list' %}">My Topics</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'learning_logs:topic_detail' topic.id %}">{{ topic.title }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Confirm Delete Entry</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7 col-lg-6">
+        <div class="card border-danger shadow-sm">
+            <div class="card-header bg-danger text-white py-3">
+                <h5 class="card-title mb-0 fw-bold d-flex align-items-center gap-2">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Confirm Entry Deletion
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <p class="lead fs-6 text-dark mb-2">
+                    Are you sure you want to permanently delete this learning log entry?
+                </p>
+
+                <div class="card bg-light border p-3 mb-4">
+                    <h6 class="fw-bold mb-1 text-primary">{{ entry.title }}</h6>
+                    <small class="text-muted d-block mb-2">
+                        Under topic: <strong>{{ topic.title }}</strong> &bull; Created: {{ entry.created_at|date:"M d, Y" }}
+                    </small>
+                    <p class="small text-muted mb-0 fst-italic">
+                        {{ entry.snippet|truncatechars:120 }}
+                    </p>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'learning_logs:topic_detail' topic.id %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i> Cancel, Keep Entry
+                        </a>
+                        <button type="submit" class="btn btn-danger px-4">
+                            <i class="bi bi-trash-fill me-1"></i> Permanently Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

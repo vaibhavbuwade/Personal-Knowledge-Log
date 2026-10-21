@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Personal Knowledge & Log Management System{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item active" aria-current="page"><i class="bi bi-speedometer2 me-1"></i> Dashboard</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<!-- Welcome & Quick Action Header -->
+<div class="row align-items-center mb-4 g-3">
+    <div class="col-md-7">
+        <h2 class="fw-bold mb-1 text-dark">
+            Welcome, {{ user.username }}! <span class="fs-4">👋</span>
+        </h2>
+        <p class="text-muted mb-0">Here is a summary of your personal knowledge repository and recent logs.</p>
+    </div>
+    <div class="col-md-5 text-md-end d-flex gap-2 justify-content-md-end">
+        <a href="{% url 'learning_logs:topic_create' %}" class="btn btn-primary shadow-sm">
+            <i class="bi bi-folder-plus me-1"></i> Add Topic
+        </a>
+        <a href="{% url 'learning_logs:entry_create' %}" class="btn btn-outline-primary shadow-sm">
+            <i class="bi bi-journal-plus me-1"></i> Add Entry
+        </a>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-4">
+        <div class="card stat-card shadow-sm h-100">
+            <div class="card-body d-flex align-items-center justify-content-between p-3 p-md-4">
+                <div>
+                    <span class="text-muted fw-semibold text-uppercase small">Total Topics</span>
+                    <h2 class="display-6 fw-bold mb-0 text-dark">{{ total_topics }}</h2>
+                    <a href="{% url 'learning_logs:topic_list' %}" class="small text-primary text-decoration-none fw-semibold">
+                        View all topics &rarr;
+                    </a>
+                </div>
+                <div class="stat-icon bg-blue-light">
+                    <i class="bi bi-folder2-open"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-4">
+        <div class="card stat-card stat-entries shadow-sm h-100">
+            <div class="card-body d-flex align-items-center justify-content-between p-3 p-md-4">
+                <div>
+                    <span class="text-muted fw-semibold text-uppercase small">Learning Entries</span>
+                    <h2 class="display-6 fw-bold mb-0 text-dark">{{ total_entries }}</h2>
+                    <span class="small text-muted">Across all your topics</span>
+                </div>
+                <div class="stat-icon bg-teal-light">
+                    <i class="bi bi-journal-text"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-12 col-lg-4">
+        <div class="card shadow-sm h-100 border-0 bg-dark text-white">
+            <div class="card-body p-3 p-md-4 d-flex flex-column justify-content-between">
+                <div>
+                    <span class="text-white-50 text-uppercase small fw-semibold">Quick Search</span>
+                    <h6 class="fw-bold mt-1 mb-2">Find Notes Instantly</h6>
+                </div>
+                <form action="{% url 'learning_logs:search' %}" method="get" class="mt-2">
+                    <div class="input-group">
+                        <input type="text" name="q" class="form-control form-control-sm border-0" placeholder="Type a keyword...">
+                        <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search"></i></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Dashboard Grid -->
+<div class="row g-4">
+    <!-- Recently Updated Topics -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white d-flex align-items-center justify-content-between py-3">
+                <span class="fw-bold text-dark d-flex align-items-center gap-2">
+                    <i class="bi bi-folder-fill text-primary"></i> Recently Updated Topics
+                </span>
+                <a href="{% url 'learning_logs:topic_list' %}" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_topics %}
+                    <div class="list-group list-group-flush">
+                        {% for topic in recent_topics %}
+                            <a href="{% url 'learning_logs:topic_detail' topic.id %}" class="list-group-item list-group-item-action p-3">
+                                <div class="d-flex w-100 justify-content-between align-items-start mb-1">
+                                    <h6 class="mb-0 fw-semibold text-primary">{{ topic.title }}</h6>
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">
+                                        {{ topic.entries.count }} {% if topic.entries.count == 1 %}entry{% else %}entries{% endif %}
+                                    </span>
+                                </div>
+                                {% if topic.description %}
+                                    <p class="mb-1 text-muted small text-truncate">{{ topic.description }}</p>
+                                {% endif %}
+                                <div class="d-flex align-items-center text-muted small mt-1">
+                                    <i class="bi bi-clock-history me-1"></i> Updated {{ topic.updated_at|timesince }} ago
+                                </div>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state p-4">
+                        <div class="empty-state-icon text-muted">
+                            <i class="bi bi-folder-x"></i>
+                        </div>
+                        <h6 class="fw-bold">No Topics Created Yet</h6>
+                        <p class="text-muted small mb-3">Create your first topic to start recording notes and concepts.</p>
+                        <a href="{% url 'learning_logs:topic_create' %}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-folder-plus me-1"></i> Create First Topic
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recently Added Entries -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white d-flex align-items-center justify-content-between py-3">
+                <span class="fw-bold text-dark d-flex align-items-center gap-2">
+                    <i class="bi bi-journal-check text-success"></i> Recent Learning Entries
+                </span>
+                {% if total_topics > 0 %}
+                    <a href="{% url 'learning_logs:entry_create' %}" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-plus-lg"></i> New Entry
+                    </a>
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                {% if recent_entries %}
+                    <div class="list-group list-group-flush">
+                        {% for entry in recent_entries %}
+                            <div class="list-group-item p-3">
+                                <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                                    <a href="{% url 'learning_logs:topic_detail' entry.topic.id %}#entry-{{ entry.id }}" class="fw-semibold text-dark text-decoration-none">
+                                        {{ entry.title }}
+                                    </a>
+                                    <a href="{% url 'learning_logs:topic_detail' entry.topic.id %}" class="badge bg-secondary-subtle text-secondary border text-decoration-none">
+                                        {{ entry.topic.title }}
+                                    </a>
+                                </div>
+                                <p class="mb-2 text-muted small">
+                                    {{ entry.snippet|truncatechars:110 }}
+                                </p>
+                                <div class="d-flex justify-content-between align-items-center text-muted small">
+                                    <span><i class="bi bi-calendar3 me-1"></i> {{ entry.created_at|date:"M d, Y" }}</span>
+                                    <div class="d-flex gap-2">
+                                        <a href="{% url 'learning_logs:entry_edit' entry.id %}" class="text-primary text-decoration-none" title="Edit entry">
+                                            <i class="bi bi-pencil-square"></i> Edit
+                                        </a>
+                                        <a href="{% url 'learning_logs:entry_delete' entry.id %}" class="text-danger text-decoration-none" title="Delete entry">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state p-4">
+                        <div class="empty-state-icon text-muted">
+                            <i class="bi bi-journal-x"></i>
+                        </div>
+                        <h6 class="fw-bold">No Learning Entries Yet</h6>
+                        <p class="text-muted small mb-3">
+                            {% if total_topics == 0 %}
+                                Once you create a topic, you can begin adding learning notes to it.
+                            {% else %}
+                                Select one of your topics and write your first dated learning log!
+                            {% endif %}
+                        </p>
+                        {% if total_topics > 0 %}
+                            <a href="{% url 'learning_logs:entry_create' %}" class="btn btn-success btn-sm">
+                                <i class="bi bi-pencil-square me-1"></i> Write First Entry
+                            </a>
+                        {% else %}
+                            <a href="{% url 'learning_logs:topic_create' %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-folder-plus me-1"></i> Create Topic First
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

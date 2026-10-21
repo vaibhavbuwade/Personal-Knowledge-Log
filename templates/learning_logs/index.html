@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}Welcome - Personal Knowledge & Log Management System{% endblock %}
+
+{% block content %}
+<div class="row align-items-center py-5">
+    <div class="col-lg-7 text-center text-lg-start mb-4 mb-lg-0">
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill fw-semibold mb-3">
+            <i class="bi bi-stars me-1"></i> Full-Stack Learning Journal
+        </span>
+        <h1 class="display-4 fw-bold text-dark lh-sm mb-3">
+            Capture, Organize &amp; Master Your Knowledge.
+        </h1>
+        <p class="lead text-muted mb-4">
+            A database-driven personal knowledge and log management application built with <strong>Python and Django</strong>. 
+            Track your topics, write dated learning notes, and monitor your progress over time.
+        </p>
+        <div class="d-flex flex-wrap gap-3 justify-content-center justify-content-lg-start">
+            <a href="{% url 'learning_logs:register' %}" class="btn btn-primary btn-lg px-4 shadow-sm">
+                <i class="bi bi-rocket-takeoff-fill me-2"></i> Get Started Free
+            </a>
+            <a href="{% url 'learning_logs:login' %}" class="btn btn-outline-secondary btn-lg px-4">
+                <i class="bi bi-box-arrow-in-right me-2"></i> Log In
+            </a>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card shadow-lg border-0 bg-primary text-white p-4 rounded-4">
+            <div class="card-body">
+                <h4 class="fw-bold mb-3 d-flex align-items-center">
+                    <i class="bi bi-journal-text me-2"></i> How It Works
+                </h4>
+                <ul class="list-unstyled mb-4">
+                    <li class="d-flex align-items-start mb-3">
+                        <i class="bi bi-1-circle-fill fs-5 me-3 text-warning"></i>
+                        <div>
+                            <strong>Create Topics:</strong> Group your studies into clear subjects like Data Structures, Django, Cloud, or APIs.
+                        </div>
+                    </li>
+                    <li class="d-flex align-items-start mb-3">
+                        <i class="bi bi-2-circle-fill fs-5 me-3 text-warning"></i>
+                        <div>
+                            <strong>Log Dated Entries:</strong> Record insights, code snippets, and daily reflections chronologically.
+                        </div>
+                    </li>
+                    <li class="d-flex align-items-start">
+                        <i class="bi bi-3-circle-fill fs-5 me-3 text-warning"></i>
+                        <div>
+                            <strong>Review &amp; Search:</strong> Search through your archive instantly from the intuitive dashboard.
+                        </div>
+                    </li>
+                </ul>
+                <div class="border-top border-white-50 pt-3">
+                    <small class="text-white-50">
+                        <i class="bi bi-shield-lock-fill me-1"></i> Private &amp; secure: only you can view and edit your personal notes.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Key Highlights Section -->
+<div class="row g-4 py-4 mt-2">
+    <div class="col-md-4">
+        <div class="card h-100 card-hover p-3">
+            <div class="card-body text-center">
+                <div class="stat-icon bg-blue-light mx-auto mb-3">
+                    <i class="bi bi-folder-check"></i>
+                </div>
+                <h5 class="fw-bold">Structured Topics</h5>
+                <p class="text-muted small">
+                    Group logs under distinct topics with custom descriptions and live entry counters.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card h-100 card-hover p-3">
+            <div class="card-body text-center">
+                <div class="stat-icon bg-teal-light mx-auto mb-3">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+                <h5 class="fw-bold">Chronological Logs</h5>
+                <p class="text-muted small">
+                    Every entry captures notes and timestamps, ordered newest first for quick revision.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card h-100 card-hover p-3">
+            <div class="card-body text-center">
+                <div class="stat-icon bg-blue-light mx-auto mb-3">
+                    <i class="bi bi-search"></i>
+                </div>
+                <h5 class="fw-bold">Fast Search &amp; Stats</h5>
+                <p class="text-muted small">
+                    Find any concept or code snippet with keyword search across all your personal topics.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

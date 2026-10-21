@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Search Results for "{{ query }}" - Personal Knowledge & Log Management System{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'learning_logs:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Search Results</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2 class="fw-bold text-dark d-flex align-items-center gap-2">
+        <i class="bi bi-search text-primary"></i> Search Knowledge Base
+    </h2>
+    {% if query %}
+        <p class="text-muted">
+            Found <strong>{{ total_results }}</strong> result{{ total_results|pluralize }} matching keyword <mark class="px-2 py-1 rounded">"{{ query }}"</mark>
+        </p>
+    {% else %}
+        <p class="text-muted">Enter a search query in the search bar to find matching topics and learning logs.</p>
+    {% endif %}
+</div>
+
+<!-- Search Input in Page -->
+<div class="row mb-4">
+    <div class="col-md-8 col-lg-6">
+        <form method="get" action="{% url 'learning_logs:search' %}">
+            <div class="input-group">
+                <input type="text" name="q" class="form-control" placeholder="Search topics, concepts, code snippets..." value="{{ query }}">
+                <button type="submit" class="btn btn-primary px-3">
+                    <i class="bi bi-search me-1"></i> Search
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if total_results > 0 %}
+    <!-- Matching Topics Section -->
+    {% if matching_topics %}
+        <div class="mb-5">
+            <h4 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2">
+                <i class="bi bi-folder2-open text-primary"></i> Matching Topics
+                <span class="badge bg-primary-subtle text-primary border rounded-pill fs-6">{{ matching_topics|length }}</span>
+            </h4>
+            <div class="row g-3">
+                {% for topic in matching_topics %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 card-hover shadow-sm">
+                            <div class="card-body d-flex flex-column">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h5 class="fw-bold mb-0">
+                                        <a href="{% url 'learning_logs:topic_detail' topic.id %}" class="text-decoration-none text-dark">
+                                            {{ topic.title }}
+                                        </a>
+                                    </h5>
+                                    <span class="badge bg-primary-subtle text-primary border rounded-pill">
+                                        {{ topic.entries.count }} entries
+                                    </span>
+                                </div>
+                                <p class="card-text text-muted small flex-grow-1">
+                                    {% if topic.description %}
+                                        {{ topic.description|truncatewords:20 }}
+                                    {% else %}
+                                        <em class="text-muted">No description.</em>
+                                    {% endif %}
+                                </p>
+                                <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                                    <span class="text-muted small"><i class="bi bi-clock-history me-1"></i> {{ topic.updated_at|timesince }} ago</span>
+                                    <a href="{% url 'learning_logs:topic_detail' topic.id %}" class="btn btn-sm btn-outline-primary">
+                                        View Topic &rarr;
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Matching Entries Section -->
+    {% if matching_entries %}
+        <div>
+            <h4 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2">
+                <i class="bi bi-journal-text text-teal text-success"></i> Matching Learning Entries
+                <span class="badge bg-secondary-subtle text-secondary border rounded-pill fs-6">{{ matching_entries|length }}</span>
+            </h4>
+            <div class="d-flex flex-column gap-3">
+                {% for entry in matching_entries %}
+                    <div class="card shadow-sm border">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center py-2 px-3">
+                            <div>
+                                <a href="{% url 'learning_logs:topic_detail' entry.topic.id %}#entry-{{ entry.id }}" class="fw-bold text-primary text-decoration-none fs-6">
+                                    {{ entry.title }}
+                                </a>
+                                <span class="text-muted small ms-2">
+                                    in <a href="{% url 'learning_logs:topic_detail' entry.topic.id %}" class="fw-semibold text-secondary text-decoration-none">{{ entry.topic.title }}</a>
+                                </span>
+                            </div>
+                            <span class="text-muted small">
+                                <i class="bi bi-calendar-event me-1"></i> {{ entry.created_at|date:"M d, Y" }}
+                            </span>
+                        </div>
+                        <div class="card-body p-3">
+                            <p class="text-muted small mb-2 entry-content">{{ entry.snippet|truncatechars:180 }}</p>
+                            <div class="d-flex justify-content-end">
+                                <a href="{% url 'learning_logs:topic_detail' entry.topic.id %}#entry-{{ entry.id }}" class="btn btn-sm btn-link text-decoration-none">
+                                    Read Full Entry in Topic &rarr;
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+{% elif query %}
+    <div class="card shadow-sm border-0 my-4">
+        <div class="card-body empty-state p-5">
+            <div class="empty-state-icon text-muted">
+                <i class="bi bi-search"></i>
+            </div>
+            <h4 class="fw-bold">No Matching Results Found</h4>
+            <p class="text-muted mb-4 col-md-6 mx-auto">
+                We couldn't find any topics or learning entries matching <mark>"{{ query }}"</mark>. Try searching with different keywords or create a new topic.
+            </p>
+            <div class="d-flex justify-content-center gap-2">
+                <a href="{% url 'learning_logs:topic_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-folder2-open me-1"></i> View All Topics
+                </a>
+                <a href="{% url 'learning_logs:topic_create' %}" class="btn btn-primary">
+                    <i class="bi bi-folder-plus me-1"></i> Create Topic
+                </a>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
