@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Verify One-Time Code - AI KnowledgeHub{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-4">
+    <div class="col-md-7 col-lg-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <div class="d-inline-flex p-3 rounded-circle bg-success-subtle text-success mb-2">
+                        <i class="bi bi-shield-check fs-2"></i>
+                    </div>
+                    <h3 class="fw-bold mb-1">Enter Verification Code</h3>
+                    <p class="text-muted small mb-1">
+                        We sent a 6-digit code to: <strong class="text-dark">{{ masked_email }}</strong>
+                    </p>
+                    <span class="badge bg-secondary-subtle text-secondary border small">Expires in 5 minutes</span>
+                </div>
+
+                <div class="alert alert-light border small text-muted mb-4 d-flex align-items-center">
+                    <i class="bi bi-terminal text-primary fs-5 me-2"></i>
+                    <div>
+                        <strong>Local Development Notice:</strong> Check your active terminal window to copy the generated 6-digit OTP code.
+                    </div>
+                </div>
+
+                <form method="post" action="{% url 'learning_logs:verify_otp' %}" novalidate>
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label for="{{ form.otp.id_for_label }}" class="form-label fw-semibold small text-center d-block">
+                            Enter 6-Digit One-Time Password
+                        </label>
+                        {{ form.otp }}
+                        {% if form.otp.errors %}
+                            <div class="invalid-feedback d-block small text-center mt-2">
+                                {{ form.otp.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-grid mb-3">
+                        <button type="submit" class="btn btn-primary btn-lg fs-6 fw-semibold shadow-sm">
+                            <i class="bi bi-check2-circle me-1"></i> Verify &amp; Sign In
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Resend OTP Action & Cooldown -->
+                <div class="text-center pt-3 border-top">
+                    {% if cooldown > 0 %}
+                        <div class="text-muted small">
+                            <i class="bi bi-clock me-1"></i> Resend available in <strong id="cooldownSeconds">{{ cooldown }}</strong>s
+                        </div>
+                    {% else %}
+                        <a href="{% url 'learning_logs:resend_otp' %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Resend Verification Code
+                        </a>
+                    {% endif %}
+                    <div class="mt-3">
+                        <a href="{% url 'learning_logs:login' %}" class="small text-muted text-decoration-none">
+                            &larr; Return to Sign In
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Live countdown timer for OTP resend cooldown
+    document.addEventListener("DOMContentLoaded", function() {
+        const cooldownElem = document.getElementById('cooldownSeconds');
+        if (cooldownElem) {
+            let seconds = parseInt(cooldownElem.textContent, 10);
+            const interval = setInterval(function() {
+                seconds--;
+                if (seconds <= 0) {
+                    clearInterval(interval);
+                    window.location.reload();
+                } else {
+                    cooldownElem.textContent = seconds;
+                }
+            }, 1000);
+        }
+    });
+</script>
+{% endblock %}

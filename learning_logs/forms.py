@@ -158,3 +158,69 @@ class QuickEntryForm(forms.ModelForm):
             self.fields['topic'].queryset = Topic.objects.filter(user=user)
             self.fields['topic'].empty_label = "-- Choose one of your topics --"
             self.fields['topic'].widget.attrs.update({'class': 'form-select'})
+
+
+from django.contrib.auth.forms import AuthenticationForm
+
+
+class EmailOrUsernameAuthenticationForm(AuthenticationForm):
+    """
+    Enhanced authentication form permitting login using either username OR email address.
+    """
+    username = forms.CharField(
+        label="Username or Email",
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your username or email',
+            'autocomplete': 'username',
+            'autofocus': True,
+        })
+    )
+    password = forms.CharField(
+        label="Password",
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your password',
+            'autocomplete': 'current-password',
+        })
+    )
+
+
+class RequestOTPForm(forms.Form):
+    """Form for initiating an Email OTP login challenge."""
+    email = forms.EmailField(
+        label="Registered Email Address",
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'name@example.com',
+            'autocomplete': 'email',
+            'required': True,
+        }),
+        help_text="We will email a 6-digit one-time verification code to this address."
+    )
+
+
+class VerifyOTPForm(forms.Form):
+    """Form for verifying a 6-digit Email OTP code."""
+    otp = forms.CharField(
+        label="6-Digit Verification Code",
+        max_length=6,
+        min_length=6,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg text-center tracking-widest fw-bold fs-4',
+            'placeholder': '• • • • • •',
+            'maxlength': '6',
+            'pattern': '[0-9]{6}',
+            'inputmode': 'numeric',
+            'autocomplete': 'one-time-code',
+            'autofocus': True,
+            'required': True,
+        }),
+        help_text="Enter the 6-digit code sent to your email. Expires in 5 minutes."
+    )
+
+    def clean_otp(self):
+        otp = self.cleaned_data.get('otp', '').strip()
+        if not otp.isdigit():
+            raise ValidationError("Verification code must consist of digits only.")
+        return otp

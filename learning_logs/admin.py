@@ -107,3 +107,19 @@ class ChatMessageAdmin(admin.ModelAdmin):
     @admin.display(description='Content')
     def content_preview(self, obj):
         return obj.content[:80]
+
+
+from .models import EmailOTP
+
+
+@admin.register(EmailOTP)
+class EmailOTPAdmin(admin.ModelAdmin):
+    list_display = ('email', 'user', 'attempts', 'max_attempts', 'is_used', 'is_expired_display', 'created_at', 'expires_at')
+    list_filter = ('is_used', 'created_at')
+    search_fields = ('email', 'user__username')
+    readonly_fields = ('otp_hash', 'created_at', 'expires_at')
+    ordering = ('-created_at',)
+
+    @admin.display(description='Expired?', boolean=True)
+    def is_expired_display(self, obj):
+        return obj.is_expired()

@@ -1,8 +1,16 @@
+from datetime import timedelta
+from unittest import mock
 from django.test import TestCase, Client
 from django.urls import reverse
+from django.utils import timezone
+from django.core import mail
 from django.contrib.auth.models import User
-from .models import Topic, Entry
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from .models import Topic, Entry, Summary, Quiz, Question, Choice, QuizAttempt, ChatSession, ChatMessage, EmailOTP
 from .forms import TopicForm, EntryForm, UserRegistrationForm
+from . import ai_service
 
 
 class ModelTests(TestCase):
@@ -648,3 +656,235 @@ class AIServiceUnitTests(TestCase):
             summary = provider.summarize("Network Protocols", "TCP uses a three-way handshake.")
             self.assertTrue(summary["is_mock"])
             self.assertIn("FALLBACK TO DEMO MODE", summary["summary"])
+
+
+class DualLoginAndOTPAuthenticationTests(TestCase):
+    """Test dual authentication (password & email OTP), cooldowns, lockouts, and edge cases."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='authuser',
+            email='authuser@example.com',
+            password='Password123!'
+        )
+
+    def test_login_with_username(self):
+        response = self.client.post(reverse('learning_logs:login'), {
+            'auth_method': 'password',
+            'username': 'authuser',
+            'password': 'Password123!',
+        }, follow=True)
+        self.assertRedirects(response, reverse('learning_logs:dashboard'))
+        self.assertTrue(response.context['user'].is_authenticated)
+
+    def test_login_with_email(self):
+        response = self.client.post(reverse('learning_logs:login'), {
+            'auth_method': 'password',
+            'username': 'authuser@example.com',
+            'password': 'Password123!',
+        }, follow=True)
+        self.assertRedirects(response, reverse('learning_logs:dashboard'))
+        self.assertTrue(response.context['user'].is_authenticated)
+
+    def test_login_with_incorrect_password(self):
+        response = self.client.post(reverse('learning_logs:login'), {
+            'auth_method': 'password',
+            'username': 'authuser@example.com',
+            'password': 'WrongPassword123!',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['user'].is_authenticated)
+
+    def test_request_otp_for_registered_user(self):
+        mail.outbox.clear()
+        response = self.client.post(reverse('learning_logs:login'), {
+            'auth_method': 'otp_request',
+            'email': 'authuser@example.com',
+        }, follow=True)
+        self.assertRedirects(response, reverse('learning_logs:verify_otp'))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Your AI KnowledgeHub One-Time Verification Code", mail.outbox[0].subject)
+
+        # Verify challenge exists in DB
+        challenge = EmailOTP.objects.filter(email='authuser@example.com', is_used=False).first()
+        self.assertIsNotNone(challenge)
+        self.assertEqual(challenge.user, self.user)
+
+    def test_request_otp_for_unregistered_email_generic_response(self):
+        mail.outbox.clear()
+        response = self.client.post(reverse('learning_logs:login'), {
+            'auth_method': 'otp_request',
+            'email': 'nonexistent@example.com',
+        }, follow=True)
+        # Prevents email enumeration: redirects identically to verify_otp
+        self.assertRedirects(response, reverse('learning_logs:verify_otp'))
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(EmailOTP.objects.filter(email='nonexistent@example.com').exists())
+
+    def test_verify_otp_success(self):
+        challenge, raw_otp = EmailOTP.create_challenge(email='authuser@example.com', user=self.user)
+        session = self.client.session
+        session['otp_email'] = 'authuser@example.com'
+        session.save()
+
+        response = self.client.post(reverse('learning_logs:verify_otp'), {
+            'otp': raw_otp,
+        }, follow=True)
+        self.assertRedirects(response, reverse('learning_logs:dashboard'))
+        self.assertTrue(response.context['user'].is_authenticated)
+
+        challenge.refresh_from_db()
+        self.assertTrue(challenge.is_used)
+
+    def test_verify_otp_invalid_code(self):
+        challenge, raw_otp = EmailOTP.create_challenge(email='authuser@example.com', user=self.user)
+        session = self.client.session
+        session['otp_email'] = 'authuser@example.com'
+        session.save()
+
+        response = self.client.post(reverse('learning_logs:verify_otp'), {
+            'otp': '999999' if raw_otp != '999999' else '888888',
+        }, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['user'].is_authenticated)
+        challenge.refresh_from_db()
+        self.assertEqual(challenge.attempts, 1)
+        self.assertFalse(challenge.is_used)
+
+    def test_verify_otp_expired(self):
+        challenge, raw_otp = EmailOTP.create_challenge(email='authuser@example.com', user=self.user)
+        challenge.expires_at = timezone.now() - timedelta(minutes=1)
+        challenge.save()
+
+        session = self.client.session
+        session['otp_email'] = 'authuser@example.com'
+        session.save()
+
+        response = self.client.post(reverse('learning_logs:verify_otp'), {
+            'otp': raw_otp,
+        }, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['user'].is_authenticated)
+
+    def test_verify_otp_reuse_prevention(self):
+        challenge, raw_otp = EmailOTP.create_challenge(email='authuser@example.com', user=self.user)
+        session = self.client.session
+        session['otp_email'] = 'authuser@example.com'
+        session.save()
+
+        # First verification succeeds
+        response1 = self.client.post(reverse('learning_logs:verify_otp'), {'otp': raw_otp}, follow=True)
+        self.assertRedirects(response1, reverse('learning_logs:dashboard'))
+        self.client.logout()
+
+        # Second verification attempt with same OTP fails
+        session = self.client.session
+        session['otp_email'] = 'authuser@example.com'
+        session.save()
+        response2 = self.client.post(reverse('learning_logs:verify_otp'), {'otp': raw_otp}, follow=True)
+        self.assertFalse(response2.context['user'].is_authenticated)
+
+    def test_verify_otp_lockout_after_max_attempts(self):
+        challenge, raw_otp = EmailOTP.create_challenge(email='authuser@example.com', user=self.user)
+        session = self.client.session
+        session['otp_email'] = 'authuser@example.com'
+        session.save()
+
+        # Fail 5 times
+        for _ in range(5):
+            self.client.post(reverse('learning_logs:verify_otp'), {'otp': '000000'})
+        challenge.refresh_from_db()
+        self.assertTrue(challenge.is_locked())
+
+        # 6th attempt with correct OTP must fail due to lockout
+        response = self.client.post(reverse('learning_logs:verify_otp'), {'otp': raw_otp})
+        self.assertFalse(response.context['user'].is_authenticated)
+
+    def test_resend_otp_cooldown(self):
+        challenge, _ = EmailOTP.create_challenge(email='authuser@example.com', user=self.user)
+        session = self.client.session
+        session['otp_email'] = 'authuser@example.com'
+        session.save()
+
+        response = self.client.get(reverse('learning_logs:resend_otp'), follow=True)
+        self.assertRedirects(response, reverse('learning_logs:verify_otp'))
+        # No new challenge should be created because cooldown is active
+        self.assertEqual(EmailOTP.objects.filter(email='authuser@example.com').count(), 1)
+
+    def test_resend_otp_without_session_redirects_to_login(self):
+        response = self.client.get(reverse('learning_logs:resend_otp'))
+        self.assertRedirects(response, reverse('learning_logs:login'))
+
+    def test_verify_otp_without_session_redirects_to_login(self):
+        response = self.client.get(reverse('learning_logs:verify_otp'))
+        self.assertRedirects(response, reverse('learning_logs:login'))
+
+
+class PasswordResetWorkflowTests(TestCase):
+    """Test full password reset workflow: form, email token generation, confirmation, and update."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='resetuser',
+            email='resetuser@example.com',
+            password='OldPassword123!'
+        )
+
+    def test_password_reset_form_render(self):
+        response = self.client.get(reverse('learning_logs:password_reset'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'registration/password_reset_form.html')
+
+    def test_password_reset_post_sends_email_with_token(self):
+        mail.outbox.clear()
+        response = self.client.post(reverse('learning_logs:password_reset'), {
+            'email': 'resetuser@example.com',
+        }, follow=True)
+        self.assertRedirects(response, reverse('learning_logs:password_reset_done'))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Reset your AI KnowledgeHub password", mail.outbox[0].subject)
+        self.assertIn("/reset/", mail.outbox[0].body)
+
+    def test_password_reset_post_unknown_email_shows_done_page(self):
+        mail.outbox.clear()
+        response = self.client.post(reverse('learning_logs:password_reset'), {
+            'email': 'ghost@example.com',
+        }, follow=True)
+        self.assertRedirects(response, reverse('learning_logs:password_reset_done'))
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_password_reset_confirm_and_complete(self):
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        confirm_url = reverse('learning_logs:password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
+
+        # GET confirm page (follows internal security redirect to set-password/)
+        response = self.client.get(confirm_url, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'registration/password_reset_confirm.html')
+        set_password_url = response.redirect_chain[0][0]
+
+        # POST new password to set_password_url
+        post_response = self.client.post(set_password_url, {
+            'new_password1': 'NewSecurePass123!',
+            'new_password2': 'NewSecurePass123!',
+        }, follow=True)
+        self.assertRedirects(post_response, reverse('learning_logs:password_reset_complete'))
+
+        # Verify login with new password succeeds
+        login_response = self.client.post(reverse('learning_logs:login'), {
+            'auth_method': 'password',
+            'username': 'resetuser',
+            'password': 'NewSecurePass123!',
+        }, follow=True)
+        self.assertTrue(login_response.context['user'].is_authenticated)
+
+    def test_password_reset_invalid_token(self):
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        invalid_token = 'invalid-token-123'
+        confirm_url = reverse('learning_logs:password_reset_confirm', kwargs={'uidb64': uid, 'token': invalid_token})
+        response = self.client.get(confirm_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Password Reset Link Invalid")

@@ -290,3 +290,121 @@ class ChatMessage(models.Model):
 
     def __str__(self):
         return f"[{self.role.upper()}] {self.content[:40]}"
+
+
+import hmac
+import hashlib
+import secrets
+from datetime import timedelta
+from django.utils import timezone
+from django.conf import settings
+
+
+class EmailOTP(models.Model):
+    """
+    Cryptographically secure, single-use, 5-minute Email OTP challenge for dual login.
+    Stores HMAC-SHA256 hash with SECRET_KEY to avoid storing raw OTP digits.
+    """
+    email = models.EmailField(db_index=True, help_text="Email address the OTP was generated for.")
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='otp_challenges',
+        help_text="User matched to this email, if registered."
+    )
+    otp_hash = models.CharField(max_length=128, help_text="HMAC-SHA256 digest of the 6-digit OTP.")
+    attempts = models.PositiveIntegerField(default=0, help_text="Verification attempts made.")
+    max_attempts = models.PositiveIntegerField(default=5, help_text="Max allowed failed attempts before lockout.")
+    is_used = models.BooleanField(default=False, help_text="Whether this OTP was verified.")
+    expires_at = models.DateTimeField(help_text="Expiry time (5 minutes).")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Email OTP Challenge'
+        verbose_name_plural = 'Email OTP Challenges'
+        indexes = [
+            models.Index(fields=['email', '-created_at']),
+        ]
+
+    def __str__(self):
+        status = "Used" if self.is_used else ("Expired" if self.is_expired() else "Active")
+        return f"OTP for {self.email} ({status}) - {self.attempts}/{self.max_attempts} attempts"
+
+    @classmethod
+    def compute_hmac(cls, otp_str: str) -> str:
+        """Derives a secure HMAC-SHA256 signature using Django SECRET_KEY."""
+        secret = settings.SECRET_KEY.encode('utf-8')
+        return hmac.new(secret, otp_str.strip().encode('utf-8'), hashlib.sha256).hexdigest()
+
+    @classmethod
+    def check_resend_cooldown(cls, email: str, cooldown_seconds: int = 60) -> int:
+        """
+        Returns remaining seconds if email is currently in cooldown, or 0 if allowed to send.
+        """
+        last_otp = cls.objects.filter(email__iexact=email.strip().lower()).order_by('-created_at').first()
+        if last_otp:
+            elapsed = (timezone.now() - last_otp.created_at).total_seconds()
+            if elapsed < cooldown_seconds:
+                return int(cooldown_seconds - elapsed)
+        return 0
+
+    @classmethod
+    def create_challenge(cls, email: str, user=None) -> tuple['EmailOTP', str]:
+        """
+        Invalidates existing active challenges for this email, generates a cryptographically
+        secure 6-digit OTP using secrets, and stores its HMAC digest with a 5-minute expiry.
+        """
+        clean_email = email.strip().lower()
+        # Invalidate any prior unused OTPs for this email
+        cls.objects.filter(email__iexact=clean_email, is_used=False).update(is_used=True)
+
+        raw_otp = "".join(secrets.choice("0123456789") for _ in range(6))
+        otp_hash = cls.compute_hmac(raw_otp)
+        expires_at = timezone.now() + timedelta(minutes=5)
+
+        challenge = cls.objects.create(
+            email=clean_email,
+            user=user,
+            otp_hash=otp_hash,
+            expires_at=expires_at
+        )
+        return challenge, raw_otp
+
+    def is_expired(self) -> bool:
+        return timezone.now() >= self.expires_at
+
+    def is_locked(self) -> bool:
+        return self.attempts >= self.max_attempts
+
+    def is_valid(self) -> bool:
+        return not self.is_used and not self.is_expired() and not self.is_locked()
+
+    def verify(self, candidate_otp: str) -> tuple[bool, str]:
+        """
+        Validates candidate OTP with constant-time comparison, incrementing attempts.
+        Returns (success_bool, message_str).
+        """
+        if self.is_used:
+            return False, "This OTP has already been used. Please request a new code."
+        if self.is_expired():
+            return False, "This OTP has expired (5-minute limit). Please request a new code."
+        if self.is_locked():
+            return False, "Too many failed attempts. This OTP is locked. Please request a new code."
+
+        self.attempts += 1
+        candidate_hash = self.compute_hmac(candidate_otp)
+
+        # Constant-time comparison to mitigate timing attacks
+        if hmac.compare_digest(self.otp_hash, candidate_hash):
+            self.is_used = True
+            self.save(update_fields=['attempts', 'is_used'])
+            return True, "Verification successful."
+        else:
+            self.save(update_fields=['attempts'])
+            remaining = max(0, self.max_attempts - self.attempts)
+            if remaining == 0:
+                return False, "Too many incorrect attempts. This OTP has been locked."
+            return False, f"Incorrect OTP code. {remaining} attempt{'s' if remaining != 1 else ''} remaining."

@@ -1,20 +1,29 @@
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.mail import send_mail
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Q, Avg
 from .models import (
     Topic, Entry, Summary, Quiz, Question, Choice,
-    QuizAttempt, ChatSession, ChatMessage
+    QuizAttempt, ChatSession, ChatMessage, EmailOTP
 )
-from .forms import UserRegistrationForm, TopicForm, EntryForm, QuickEntryForm
+from .forms import (
+    UserRegistrationForm, TopicForm, EntryForm, QuickEntryForm,
+    EmailOrUsernameAuthenticationForm, RequestOTPForm, VerifyOTPForm
+)
 from . import ai_service
+
+logger = logging.getLogger(__name__)
 
 
 # ===========================================================================
-# Authentication & Landing Views
+# Authentication & Landing Views (Dual Login: Password & Email OTP)
 # ===========================================================================
 
 def index_view(request):
@@ -33,8 +42,8 @@ def register_view(request):
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user)
-            messages.success(request, f"Welcome to Personal Knowledge System, {user.username}! Your account has been created.")
+            login(request, user, backend='learning_logs.auth_backends.EmailOrUsernameModelBackend')
+            messages.success(request, f"Welcome to AI KnowledgeHub, {user.username}! Your account has been created.")
             return redirect('learning_logs:dashboard')
         else:
             messages.error(request, "Please correct the errors below to complete your registration.")
@@ -45,24 +54,184 @@ def register_view(request):
 
 
 def login_view(request):
-    """User login view with validation and feedback."""
+    """
+    Dual Login View:
+    Offers both Password login (username or email) and Email OTP login initiation
+    within a seamless tabbed/segmented UI.
+    """
     if request.user.is_authenticated:
         return redirect('learning_logs:dashboard')
 
-    if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            messages.success(request, f"Welcome back, {user.username}!")
-            next_url = request.GET.get('next') or 'learning_logs:dashboard'
-            return redirect(next_url)
-        else:
-            messages.error(request, "Invalid username or password. Please try again.")
-    else:
-        form = AuthenticationForm(request)
+    active_tab = request.GET.get('tab', 'password')
+    password_form = EmailOrUsernameAuthenticationForm(request)
+    otp_request_form = RequestOTPForm()
 
-    return render(request, 'registration/login.html', {'form': form})
+    if request.method == 'POST':
+        auth_method = request.POST.get('auth_method', 'password')
+        active_tab = auth_method
+
+        if auth_method == 'password':
+            password_form = EmailOrUsernameAuthenticationForm(request, data=request.POST)
+            if password_form.is_valid():
+                user = password_form.get_user()
+                login(request, user)
+                messages.success(request, f"Welcome back, {user.username}!")
+                next_url = request.GET.get('next') or request.POST.get('next') or 'learning_logs:dashboard'
+                return redirect(next_url)
+            else:
+                messages.error(request, "Invalid username/email or password. Please try again.")
+
+        elif auth_method == 'otp_request':
+            otp_request_form = RequestOTPForm(request.POST)
+            if otp_request_form.is_valid():
+                email = otp_request_form.cleaned_data['email'].strip().lower()
+
+                # Enforce 60-second resend cooldown to protect against spam / email bombing
+                cooldown = EmailOTP.check_resend_cooldown(email, cooldown_seconds=60)
+                if cooldown > 0:
+                    messages.warning(request, f"Please wait {cooldown} seconds before requesting a new verification code.")
+                    return render(request, 'registration/login.html', {
+                        'password_form': password_form,
+                        'otp_request_form': otp_request_form,
+                        'active_tab': 'otp_request',
+                    })
+
+                # Check if user exists (generic message shown to prevent email enumeration)
+                user = User.objects.filter(email__iexact=email).first()
+
+                # Always set session email so non-existent addresses behave identically
+                request.session['otp_email'] = email
+
+                if user:
+                    challenge, raw_otp = EmailOTP.create_challenge(email=email, user=user)
+
+                    # Send OTP email via configured email backend (Console backend by default in dev)
+                    subject = "Your AI KnowledgeHub One-Time Verification Code"
+                    body = (
+                        f"Hello {user.username},\n\n"
+                        f"Your one-time login verification code is:\n\n"
+                        f"    {raw_otp}\n\n"
+                        f"This code will expire in 5 minutes.\n"
+                        f"If you did not request this login code, you can safely ignore this email.\n\n"
+                        f"- The AI KnowledgeHub Team"
+                    )
+                    try:
+                        send_mail(
+                            subject,
+                            body,
+                            settings.DEFAULT_FROM_EMAIL,
+                            [email],
+                            fail_silently=False
+                        )
+                    except Exception as e:
+                        logger.error(f"Email delivery failed: {e}")
+
+                messages.info(request, f"If an account with {email} exists, a 6-digit verification code has been sent.")
+                return redirect('learning_logs:verify_otp')
+
+    return render(request, 'registration/login.html', {
+        'password_form': password_form,
+        'otp_request_form': otp_request_form,
+        'active_tab': active_tab,
+        'next': request.GET.get('next', ''),
+    })
+
+
+def verify_otp_view(request):
+    """
+    Validates a submitted 6-digit OTP code against the active challenge for the session email.
+    Enforces 5-minute expiry, single-use invalidation, and max 5 attempts.
+    """
+    if request.user.is_authenticated:
+        return redirect('learning_logs:dashboard')
+
+    email = request.session.get('otp_email')
+    if not email:
+        messages.warning(request, "Please enter your email to request an OTP code first.")
+        return redirect('learning_logs:login')
+
+    cooldown = EmailOTP.check_resend_cooldown(email, cooldown_seconds=60)
+
+    if request.method == 'POST':
+        form = VerifyOTPForm(request.POST)
+        if form.is_valid():
+            candidate_otp = form.cleaned_data['otp']
+
+            # Find latest unused challenge for this email
+            challenge = EmailOTP.objects.filter(email__iexact=email, is_used=False).order_by('-created_at').first()
+
+            if not challenge or challenge.is_expired():
+                messages.error(request, "No active verification challenge found or your code has expired. Please request a new OTP.")
+            else:
+                success, msg = challenge.verify(candidate_otp)
+                if success:
+                    if challenge.user and challenge.user.is_active:
+                        login(request, challenge.user, backend='learning_logs.auth_backends.EmailOrUsernameModelBackend')
+                        # Clean up session email
+                        request.session.pop('otp_email', None)
+                        messages.success(request, f"Welcome back, {challenge.user.username}! Logged in via Email OTP.")
+                        next_url = request.session.pop('next_url', None) or 'learning_logs:dashboard'
+                        return redirect(next_url)
+                    else:
+                        messages.error(request, "Authentication failed. User account is inactive or not found.")
+                else:
+                    messages.error(request, msg)
+    else:
+        form = VerifyOTPForm()
+
+    # Mask email for UI display (e.g., v***@gmail.com)
+    parts = email.split('@')
+    masked_email = f"{parts[0][0]}***@{parts[1]}" if len(parts) == 2 and len(parts[0]) > 1 else email
+
+    return render(request, 'registration/verify_otp.html', {
+        'form': form,
+        'email': email,
+        'masked_email': masked_email,
+        'cooldown': cooldown,
+    })
+
+
+def resend_otp_view(request):
+    """
+    Resends a fresh OTP code to the email stored in session, subject to a 60-second cooldown.
+    """
+    if request.user.is_authenticated:
+        return redirect('learning_logs:dashboard')
+
+    email = request.session.get('otp_email')
+    if not email:
+        messages.warning(request, "No email session found. Please enter your email to log in.")
+        return redirect('learning_logs:login')
+
+    cooldown = EmailOTP.check_resend_cooldown(email, cooldown_seconds=60)
+    if cooldown > 0:
+        messages.warning(request, f"Please wait {cooldown} seconds before requesting a new code.")
+        return redirect('learning_logs:verify_otp')
+
+    user = User.objects.filter(email__iexact=email).first()
+    if user:
+        challenge, raw_otp = EmailOTP.create_challenge(email=email, user=user)
+        subject = "Your New AI KnowledgeHub Verification Code"
+        body = (
+            f"Hello {user.username},\n\n"
+            f"Your new one-time verification code is:\n\n"
+            f"    {raw_otp}\n\n"
+            f"This code will expire in 5 minutes.\n\n"
+            f"- The AI KnowledgeHub Team"
+        )
+        try:
+            send_mail(
+                subject,
+                body,
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False
+            )
+        except Exception as e:
+            logger.error(f"Email delivery error on resend: {e}")
+
+    messages.info(request, "A fresh 6-digit verification code has been dispatched to your email.")
+    return redirect('learning_logs:verify_otp')
 
 
 def logout_view(request):
@@ -71,6 +240,7 @@ def logout_view(request):
         logout(request)
         messages.info(request, "You have been logged out successfully. Have a productive day!")
         return redirect('learning_logs:login')
+
 
 
 # ===========================================================================

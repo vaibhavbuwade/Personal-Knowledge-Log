@@ -16,12 +16,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-learning-logs-dev-key-change-in-production-12345')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1]').split(',') if host.strip()]
+if 'testserver' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('testserver')
 
 # Application definition
 INSTALLED_APPS = [
@@ -77,6 +79,12 @@ DATABASES = {
     )
 }
 
+# Authentication Backends: Support login with username OR email
+AUTHENTICATION_BACKENDS = [
+    'learning_logs.auth_backends.EmailOrUsernameModelBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -98,6 +106,19 @@ AUTH_PASSWORD_VALIDATORS = [
 LOGIN_URL = 'learning_logs:login'
 LOGIN_REDIRECT_URL = 'learning_logs:dashboard'
 LOGOUT_REDIRECT_URL = 'learning_logs:login'
+
+# Email Configuration
+# Default for development: Console backend (prints OTP and password reset links to terminal)
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'AI KnowledgeHub <noreply@knowledgehub.local>')
+
+# Password Reset Token Timeout (30 minutes)
+PASSWORD_RESET_TIMEOUT = 1800
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
