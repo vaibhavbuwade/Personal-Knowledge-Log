@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Topic, Entry
+from .models import (
+    Topic, Entry, Summary, Quiz, Question, Choice,
+    QuizAttempt, ChatSession, ChatMessage
+)
 
 
 @admin.register(Topic)
@@ -26,3 +29,81 @@ class EntryAdmin(admin.ModelAdmin):
     @admin.display(description='Author')
     def get_author(self, obj):
         return obj.topic.user.username
+
+
+@admin.register(Summary)
+class SummaryAdmin(admin.ModelAdmin):
+    list_display = ('entry', 'user', 'is_mock', 'created_at')
+    list_filter = ('is_mock', 'created_at', 'user')
+    search_fields = ('entry__title', 'summary_text', 'user__username')
+    date_hierarchy = 'created_at'
+    ordering = ('-created_at',)
+
+
+class ChoiceInline(admin.TabularInline):
+    model = Choice
+    extra = 4
+
+
+@admin.register(Question)
+class QuestionAdmin(admin.ModelAdmin):
+    list_display = ('quiz', 'order', 'text_preview')
+    list_filter = ('quiz__user',)
+    search_fields = ('text', 'explanation', 'quiz__title')
+    inlines = [ChoiceInline]
+
+    @admin.display(description='Question')
+    def text_preview(self, obj):
+        return obj.text[:60]
+
+
+class QuestionInline(admin.StackedInline):
+    model = Question
+    extra = 1
+    show_change_link = True
+
+
+@admin.register(Quiz)
+class QuizAdmin(admin.ModelAdmin):
+    list_display = ('title', 'entry', 'user', 'question_count', 'is_mock', 'created_at')
+    list_filter = ('is_mock', 'created_at', 'user')
+    search_fields = ('title', 'entry__title', 'user__username')
+    date_hierarchy = 'created_at'
+    inlines = [QuestionInline]
+
+
+@admin.register(QuizAttempt)
+class QuizAttemptAdmin(admin.ModelAdmin):
+    list_display = ('user', 'quiz', 'score', 'total_questions', 'percentage_display', 'attempted_at')
+    list_filter = ('attempted_at', 'user')
+    search_fields = ('user__username', 'quiz__title')
+    date_hierarchy = 'attempted_at'
+
+    @admin.display(description='Score %')
+    def percentage_display(self, obj):
+        return f"{obj.percentage:.1f}%"
+
+
+class ChatMessageInline(admin.TabularInline):
+    model = ChatMessage
+    extra = 0
+    readonly_fields = ('role', 'content', 'retrieved_notes', 'created_at')
+
+
+@admin.register(ChatSession)
+class ChatSessionAdmin(admin.ModelAdmin):
+    list_display = ('title', 'user', 'created_at', 'updated_at')
+    list_filter = ('created_at', 'updated_at', 'user')
+    search_fields = ('title', 'user__username')
+    inlines = [ChatMessageInline]
+
+
+@admin.register(ChatMessage)
+class ChatMessageAdmin(admin.ModelAdmin):
+    list_display = ('session', 'role', 'content_preview', 'created_at')
+    list_filter = ('role', 'created_at', 'session__user')
+    search_fields = ('content', 'session__user__username')
+
+    @admin.display(description='Content')
+    def content_preview(self, obj):
+        return obj.content[:80]

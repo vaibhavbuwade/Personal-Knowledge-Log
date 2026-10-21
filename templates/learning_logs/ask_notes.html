@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block title %}Ask My Notes - AI Knowledge Assistant{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'learning_logs:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Ask My Notes</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Sidebar: Sessions & Topics Quick Nav -->
+    <div class="col-lg-4 col-xl-3">
+        <div class="card shadow-sm border-0 mb-3 bg-white">
+            <div class="card-body p-3">
+                <a href="{% url 'learning_logs:chat_new' %}" class="btn btn-primary w-100 shadow-sm fw-semibold mb-3">
+                    <i class="bi bi-plus-lg me-1"></i> New Chat Session
+                </a>
+
+                <h6 class="text-uppercase small fw-bold text-muted px-2 mb-2">Recent Sessions</h6>
+                <div class="list-group list-group-flush" style="max-height: 380px; overflow-y: auto;">
+                    {% for s in all_sessions %}
+                        <a href="{% url 'learning_logs:ask_notes_session' s.id %}" class="list-group-item list-group-item-action py-2 px-3 border-0 rounded mb-1 {% if s.id == chat_session.id %}bg-primary-subtle text-primary fw-bold{% endif %}">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-chat-left-text text-secondary"></i>
+                                <div class="text-truncate" style="max-width: 170px;">{{ s.title }}</div>
+                            </div>
+                            <small class="text-muted d-block ms-4" style="font-size: 0.75rem;">{{ s.updated_at|timesince }} ago</small>
+                        </a>
+                    {% empty %}
+                        <div class="text-muted small px-2 py-3 text-center">No past chat sessions</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Privacy & Grounding Security Badge -->
+        <div class="card shadow-sm border-0 bg-light">
+            <div class="card-body p-3 small text-muted">
+                <div class="fw-bold text-dark d-flex align-items-center gap-1 mb-1">
+                    <i class="bi bi-shield-lock-fill text-success"></i> Privacy-Grounded AI
+                </div>
+                Answers are grounded <strong>strictly</strong> in your own notes. No external user's data is ever queried or exposed.
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Chat Window -->
+    <div class="col-lg-8 col-xl-9">
+        <div class="card shadow-sm border-0 d-flex flex-column" style="min-height: 620px;">
+            <!-- Chat Header -->
+            <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="bg-warning-subtle text-warning-emphasis p-2 rounded-circle">
+                        <i class="bi bi-stars fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="mb-0 fw-bold text-dark">{{ chat_session.title }}</h5>
+                        <small class="text-muted">Retrieval-grounded Q&A against your learning entries</small>
+                    </div>
+                </div>
+
+                <div class="btn-group btn-group-sm">
+                    <a href="{% url 'learning_logs:chat_clear' chat_session.id %}" class="btn btn-outline-danger btn-sm" onclick="return confirm('Clear all messages in this chat session?');" title="Clear chat messages">
+                        <i class="bi bi-trash me-1"></i> Clear History
+                    </a>
+                </div>
+            </div>
+
+            <!-- Messages Stream Area -->
+            <div class="card-body p-4 flex-grow-1 overflow-auto" id="chatMessageContainer" style="max-height: 460px; background-color: #f8fafc;">
+                {% if messages %}
+                    {% for msg in messages %}
+                        {% if msg.role == 'user' %}
+                            <!-- User Message Bubble (Right) -->
+                            <div class="d-flex justify-content-end mb-3">
+                                <div class="p-3 rounded-4 shadow-sm text-white bg-primary" style="max-width: 80%;">
+                                    <div class="small fw-semibold mb-1 opacity-75 text-end">You</div>
+                                    <div style="white-space: pre-wrap;">{{ msg.content }}</div>
+                                    <div class="text-end mt-1" style="font-size: 0.7rem; opacity: 0.7;">{{ msg.created_at|date:"H:i" }}</div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <!-- Assistant Message Bubble (Left) -->
+                            <div class="d-flex justify-content-start mb-3">
+                                <div class="p-3 rounded-4 shadow-sm bg-white border" style="max-width: 85%;">
+                                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2 pb-1 border-bottom">
+                                        <div class="d-flex align-items-center gap-1 fw-bold text-dark small">
+                                            <i class="bi bi-robot text-primary"></i> Ask My Notes AI
+                                        </div>
+                                        {% if msg.retrieved_notes %}
+                                            <span class="badge bg-light text-muted border" style="font-size: 0.7rem;">
+                                                <i class="bi bi-bookmark-check text-success me-1"></i>Sources: {{ msg.retrieved_notes|truncatechars:40 }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-dark" style="white-space: pre-wrap; line-height: 1.6;">{{ msg.content }}</div>
+                                    <div class="text-end mt-2 text-muted" style="font-size: 0.7rem;">{{ msg.created_at|date:"H:i" }}</div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <!-- Empty State / Suggestions -->
+                    <div class="text-center py-5">
+                        <div class="bg-primary-subtle text-primary p-3 rounded-circle d-inline-block mb-3">
+                            <i class="bi bi-chat-quote-fill fs-2"></i>
+                        </div>
+                        <h5 class="fw-bold text-dark">Ask Questions About Your Learning Notes</h5>
+                        <p class="text-muted col-md-8 mx-auto small mb-4">
+                            Ask me to explain concepts, compare mechanisms, summarize notes, or quiz you based solely on notes you've saved in your topics.
+                        </p>
+
+                        <!-- Suggested Query Prompts -->
+                        <div class="d-flex flex-wrap justify-content-center gap-2 col-md-10 mx-auto">
+                            <button type="button" class="btn btn-outline-secondary btn-sm prompt-suggestion" onclick="setQuery('Give me a quick revision of my recent notes.')">
+                                <i class="bi bi-lightning-charge text-warning me-1"></i> Quick revision of my notes
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm prompt-suggestion" onclick="setQuery('Explain the key concepts in simple beginner-friendly language.')">
+                                <i class="bi bi-lightbulb text-info me-1"></i> Explain in simple language
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm prompt-suggestion" onclick="setQuery('What are the main differences between the concepts in my notes?')">
+                                <i class="bi bi-intersect text-primary me-1"></i> Compare key concepts
+                            </button>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Input Form Box -->
+            <div class="card-footer bg-white p-3 border-top">
+                {% if not has_notes %}
+                    <div class="alert alert-warning py-2 px-3 small mb-2 d-flex align-items-center">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        You don't have any notes yet! <a href="{% url 'learning_logs:entry_create' %}" class="alert-link ms-1">Create your first note</a> so the AI can answer your questions.
+                    </div>
+                {% endif %}
+
+                <form method="post" action="{% url 'learning_logs:ask_notes_session' chat_session.id %}" id="chatForm">
+                    {% csrf_token %}
+                    <div class="input-group">
+                        <input type="text" name="query" id="chatQueryInput" class="form-control" placeholder="Ask a question about your saved notes (e.g. 'Explain TCP vs UDP', 'What is XSS?')..." maxlength="500" required autocomplete="off">
+                        <button type="submit" class="btn btn-primary px-4 fw-semibold" id="sendBtn">
+                            <i class="bi bi-send-fill me-1"></i> Ask
+                        </button>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+                        <small class="text-muted" style="font-size: 0.75rem;">Max 500 characters &bull; Scoped strictly to your account notes</small>
+                        <span class="badge bg-secondary-subtle text-secondary border" style="font-size: 0.7rem;">Demo Mock AI Active</span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function setQuery(text) {
+        const input = document.getElementById('chatQueryInput');
+        if (input) {
+            input.value = text;
+            input.focus();
+        }
+    }
+
+    // Auto-scroll chat container to bottom on load
+    document.addEventListener("DOMContentLoaded", function() {
+        const container = document.getElementById('chatMessageContainer');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    });
+</script>
+{% endblock %}

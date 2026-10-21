@@ -374,3 +374,277 @@ class FormValidationTests(TestCase):
         self.assertRedirects(response, reverse('learning_logs:topic_create'))
         self.assertContains(response, 'You must create at least one topic before adding learning entries.')
 
+
+
+from .models import Summary, Quiz, Question, Choice, QuizAttempt, ChatSession, ChatMessage
+from . import ai_service
+import unittest.mock as mock
+
+
+class SummaryAndAISummarizerTests(TestCase):
+    """Test AI note summarizer generation, model methods, and access control."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user_a = User.objects.create_user(username='alice_summary', password='Password123!')
+        self.user_b = User.objects.create_user(username='bob_summary', password='Password123!')
+
+        self.topic = Topic.objects.create(user=self.user_a, title='Cybersecurity Basics')
+        self.entry = Entry.objects.create(
+            topic=self.topic,
+            title='Cross-Site Scripting (XSS)',
+            content='Cross-Site Scripting is a client-side vulnerability where malicious scripts are injected into trusted websites. Input sanitization: always escape user input.'
+        )
+
+    def test_generate_summary_in_mock_mode(self):
+        self.client.force_login(self.user_a)
+        response = self.client.get(reverse('learning_logs:entry_summarize', kwargs={'entry_id': self.entry.id}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Executive Summary')
+        self.assertContains(response, 'Demo / Mock AI Mode Active')
+
+        # Check summary saved in DB
+        summary = Summary.objects.get(entry=self.entry)
+        self.assertEqual(summary.user, self.user_a)
+        self.assertTrue(summary.is_mock)
+        self.assertTrue(len(summary.get_points_list()) > 0)
+        self.assertTrue(len(summary.get_terms_list()) > 0)
+
+    def test_regenerate_summary(self):
+        self.client.force_login(self.user_a)
+        # First creation
+        self.client.get(reverse('learning_logs:entry_summarize', kwargs={'entry_id': self.entry.id}))
+        initial_count = Summary.objects.count()
+
+        # Regenerate with flag
+        response = self.client.get(reverse('learning_logs:entry_summarize', kwargs={'entry_id': self.entry.id}) + '?regenerate=1')
+        self.assertEqual(response.status_code, 200)
+        # Count should remain 1 because it updates the existing entry summary
+        self.assertEqual(Summary.objects.count(), initial_count)
+
+    def test_user_cannot_summarize_or_view_another_users_entry(self):
+        """Bob cannot access or generate a summary for Alice's entry."""
+        self.client.force_login(self.user_b)
+        response = self.client.get(reverse('learning_logs:entry_summarize', kwargs={'entry_id': self.entry.id}))
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(Summary.objects.filter(entry=self.entry).exists())
+
+    def test_summary_list_view(self):
+        Summary.objects.create(
+            entry=self.entry,
+            user=self.user_a,
+            summary_text="Alice's Summary",
+            key_points="• Point 1",
+            key_terms="Term: Def",
+            is_mock=True
+        )
+        self.client.force_login(self.user_a)
+        response = self.client.get(reverse('learning_logs:summary_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Cross-Site Scripting (XSS)")
+
+        # Bob should not see Alice's summary in Bob's list
+        self.client.force_login(self.user_b)
+        response_bob = self.client.get(reverse('learning_logs:summary_list'))
+        self.assertNotContains(response_bob, "Cross-Site Scripting (XSS)")
+
+
+class QuizAndScoringTests(TestCase):
+    """Test AI quiz generation, attempt tracking, server-side grading, and tampering protection."""
+
+    def setUp(self):
+        self.client = Client()
+        self.alice = User.objects.create_user(username='alice_quiz', password='Password123!')
+        self.bob = User.objects.create_user(username='bob_quiz', password='Password123!')
+
+        self.topic = Topic.objects.create(user=self.alice, title='Computer Networking')
+        self.entry = Entry.objects.create(
+            topic=self.topic,
+            title='TCP vs UDP Protocol',
+            content='TCP is a connection-oriented protocol that guarantees delivery via a 3-way handshake. UDP is connectionless and does not guarantee packet delivery.'
+        )
+
+    def test_generate_quiz_success(self):
+        self.client.force_login(self.alice)
+        response = self.client.get(reverse('learning_logs:quiz_generate', kwargs={'entry_id': self.entry.id}))
+        self.assertEqual(response.status_code, 302)
+
+        quiz = Quiz.objects.filter(entry=self.entry).first()
+        self.assertIsNotNone(quiz)
+        self.assertEqual(quiz.user, self.alice)
+        self.assertTrue(quiz.questions.count() > 0)
+
+        # Verify each question has choices and at least one is correct
+        for question in quiz.questions.all():
+            self.assertEqual(question.choices.count(), 4)
+            self.assertTrue(question.choices.filter(is_correct=True).exists())
+
+    def test_user_cannot_generate_quiz_on_another_users_entry(self):
+        self.client.force_login(self.bob)
+        response = self.client.get(reverse('learning_logs:quiz_generate', kwargs={'entry_id': self.entry.id}))
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(Quiz.objects.filter(entry=self.entry).exists())
+
+    def test_user_cannot_take_another_users_quiz(self):
+        quiz = Quiz.objects.create(entry=self.entry, user=self.alice, title='Alice Networking Quiz')
+        self.client.force_login(self.bob)
+        response = self.client.get(reverse('learning_logs:quiz_take', kwargs={'quiz_id': quiz.id}))
+        self.assertEqual(response.status_code, 404)
+
+    def test_server_side_scoring_calculation(self):
+        quiz = Quiz.objects.create(entry=self.entry, user=self.alice, title='Scoring Test Quiz')
+        q1 = Question.objects.create(quiz=quiz, text='What is TCP?', order=1)
+        c1_correct = Choice.objects.create(question=q1, text='Connection oriented', is_correct=True, order=1)
+        c1_wrong = Choice.objects.create(question=q1, text='Connectionless', is_correct=False, order=2)
+
+        q2 = Question.objects.create(quiz=quiz, text='What is UDP?', order=2)
+        c2_wrong = Choice.objects.create(question=q2, text='Guarantees delivery', is_correct=False, order=1)
+        c2_correct = Choice.objects.create(question=q2, text='Connectionless unreliable', is_correct=True, order=2)
+
+        self.client.force_login(self.alice)
+
+        # Submit 1 correct and 1 incorrect answer
+        post_data = {
+            f'question_{q1.id}': str(c1_correct.id),
+            f'question_{q2.id}': str(c2_wrong.id),
+        }
+        response = self.client.post(reverse('learning_logs:quiz_take', kwargs={'quiz_id': quiz.id}), post_data)
+        self.assertEqual(response.status_code, 200)
+
+        # Score must be exactly 1 out of 2 (50.0%)
+        attempt = QuizAttempt.objects.filter(quiz=quiz, user=self.alice).first()
+        self.assertIsNotNone(attempt)
+        self.assertEqual(attempt.score, 1)
+        self.assertEqual(attempt.total_questions, 2)
+        self.assertEqual(attempt.percentage, 50.0)
+        self.assertContains(response, '1 / 2')
+        self.assertContains(response, '50.0% Score')
+
+    def test_client_side_score_tampering_prevented(self):
+        """User submitting fake or non-existent choice IDs gets 0, cannot manipulate server score."""
+        quiz = Quiz.objects.create(entry=self.entry, user=self.alice, title='Tamper Test')
+        q1 = Question.objects.create(quiz=quiz, text='Tamper question?', order=1)
+        Choice.objects.create(question=q1, text='Legit Choice', is_correct=True, order=1)
+
+        self.client.force_login(self.alice)
+        # Attempt to inject invalid choice ID
+        response = self.client.post(reverse('learning_logs:quiz_take', kwargs={'quiz_id': quiz.id}), {
+            f'question_{q1.id}': '9999999',
+        })
+        self.assertEqual(response.status_code, 200)
+        attempt = QuizAttempt.objects.get(quiz=quiz, user=self.alice)
+        self.assertEqual(attempt.score, 0)
+        self.assertEqual(attempt.percentage, 0.0)
+
+
+class AskNotesChatbotTests(TestCase):
+    """Test retrieval-augmented chatbot, user scoping, and prompt grounding."""
+
+    def setUp(self):
+        self.client = Client()
+        self.alice = User.objects.create_user(username='alice_chat', password='Password123!')
+        self.bob = User.objects.create_user(username='bob_chat', password='Password123!')
+
+        self.topic_alice = Topic.objects.create(user=self.alice, title='Web Security')
+        self.entry_alice = Entry.objects.create(
+            topic=self.topic_alice,
+            title='SQL Injection Secrets',
+            content='SQL Injection happens when untrusted user input is directly concatenated into SQL queries. Prevention requires parameterized queries and prepared statements.'
+        )
+
+        self.topic_bob = Topic.objects.create(user=self.bob, title='Python Data Structures')
+        self.entry_bob = Entry.objects.create(
+            topic=self.topic_bob,
+            title='Python Dictionaries',
+            content='Python dictionaries use hash tables to achieve average O(1) key lookups and insertions.'
+        )
+
+    def test_alice_asks_about_her_own_note(self):
+        self.client.force_login(self.alice)
+        response = self.client.get(reverse('learning_logs:ask_notes'))
+        self.assertEqual(response.status_code, 200)
+
+        # Alice sends a query
+        post_response = self.client.post(reverse('learning_logs:ask_notes'), {
+            'query': 'Explain SQL Injection prevention',
+        }, follow=True)
+        self.assertEqual(post_response.status_code, 200)
+        self.assertContains(post_response, 'SQL Injection Secrets')
+        self.assertContains(post_response, 'parameterized queries')
+
+    def test_bob_cannot_retrieve_alices_private_notes(self):
+        """When Bob asks about SQL Injection, Alice's note must NOT be retrieved or leaked."""
+        self.client.force_login(self.bob)
+        post_response = self.client.post(reverse('learning_logs:ask_notes'), {
+            'query': 'Tell me about SQL Injection Secrets',
+        }, follow=True)
+        self.assertEqual(post_response.status_code, 200)
+        # Should not reveal Alice's secret content
+        self.assertNotContains(post_response, 'parameterized queries and prepared statements')
+        # Assistant must inform Bob that his notes don't contain this
+        self.assertContains(post_response, 'none of them contain specific information answering')
+
+    def test_bob_cannot_view_or_post_to_alices_chat_session(self):
+        session_alice = ChatSession.objects.create(user=self.alice, title="Alice Private Session")
+        self.client.force_login(self.bob)
+        response = self.client.get(reverse('learning_logs:ask_notes_session', kwargs={'session_id': session_alice.id}))
+        self.assertEqual(response.status_code, 404)
+
+        # Bob cannot clear Alice's chat
+        clear_response = self.client.get(reverse('learning_logs:chat_clear', kwargs={'session_id': session_alice.id}))
+        self.assertEqual(clear_response.status_code, 404)
+
+    def test_chat_clear_view(self):
+        session = ChatSession.objects.create(user=self.alice, title="Session to clear")
+        ChatMessage.objects.create(session=session, role='user', content='Hello')
+        ChatMessage.objects.create(session=session, role='assistant', content='Hi')
+        self.assertEqual(session.messages.count(), 2)
+
+        self.client.force_login(self.alice)
+        response = self.client.get(reverse('learning_logs:chat_clear', kwargs={'session_id': session.id}), follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(session.messages.count(), 0)
+
+
+class AIServiceUnitTests(TestCase):
+    """Test AI service functions, mock fallback, input sanitization, and error handling."""
+
+    def test_sanitize_user_text(self):
+        from .ai_service import sanitize_user_text
+        text_with_null = "Hello\x00World"
+        self.assertEqual(sanitize_user_text(text_with_null), "HelloWorld")
+
+        long_text = "A" * 15000
+        sanitized = sanitize_user_text(long_text, max_length=100)
+        self.assertEqual(len(sanitized), 100)
+
+    def test_mock_provider_empty_content(self):
+        provider = ai_service.MockAIProvider()
+        res = provider.summarize("Empty Note", "")
+        self.assertTrue(res["is_mock"])
+        self.assertIn("does not contain enough text", res["summary"])
+
+    def test_mock_provider_quiz_generation_integrity(self):
+        provider = ai_service.MockAIProvider()
+        questions = provider.generate_quiz(
+            "Operating Systems",
+            "Virtual memory is a memory management capability of an operating system. Paging divides memory into fixed-size blocks.",
+            num_questions=3
+        )
+        self.assertEqual(len(questions), 3)
+        for q in questions:
+            self.assertEqual(len(q["choices"]), 4)
+            correct_count = sum(1 for c in q["choices"] if c["is_correct"])
+            self.assertEqual(correct_count, 1)
+
+    def test_external_provider_fallback_on_network_failure(self):
+        """Verify OpenAICompatibleProvider falls back gracefully to Mock when API request fails."""
+        provider = ai_service.OpenAICompatibleProvider(
+            api_key="fake_key",
+            model="fake_model",
+            base_url="https://invalid.example.com"
+        )
+        with mock.patch.object(provider, '_call_chat_completion', side_effect=Exception("Connection timed out")):
+            summary = provider.summarize("Network Protocols", "TCP uses a three-way handshake.")
+            self.assertTrue(summary["is_mock"])
+            self.assertIn("FALLBACK TO DEMO MODE", summary["summary"])

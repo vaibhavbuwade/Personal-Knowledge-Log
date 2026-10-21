@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>{% block title %}Personal Knowledge & Log Management System{% endblock %}</title>
+    <title>{% block title %}AI-Powered Personal Knowledge & Learning Management System{% endblock %}</title>
 
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
@@ -21,8 +21,8 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm py-2">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center gap-2" href="{% if user.is_authenticated %}{% url 'learning_logs:dashboard' %}{% else %}{% url 'learning_logs:index' %}{% endif %}">
-                <i class="bi bi-journal-bookmark-fill fs-4 text-primary"></i>
-                <span class="fw-bold">KnowledgeLog</span>
+                <i class="bi bi-robot fs-4 text-primary"></i>
+                <span class="fw-bold tracking-tight">AI KnowledgeHub</span>
             </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
@@ -43,13 +43,42 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-white-50" href="{% url 'learning_logs:topic_create' %}">
-                            <i class="bi bi-folder-plus me-1"></i> Add Topic
+                        <a class="nav-link {% if request.resolver_match.url_name == 'entry_list' %}active text-white fw-bold{% endif %}" href="{% url 'learning_logs:entry_list' %}">
+                            <i class="bi bi-journal-text me-1"></i> My Notes
                         </a>
                     </li>
+
+                    <!-- AI Assistant Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-white d-flex align-items-center gap-1 {% if 'ask_notes' in request.resolver_match.url_name or 'summary' in request.resolver_match.url_name %}active fw-bold text-info{% endif %}" href="#" id="aiAssistantDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-stars text-warning me-1"></i> AI Assistant
+                        </a>
+                        <ul class="dropdown-menu shadow" aria-labelledby="aiAssistantDropdown">
+                            <li><h6 class="dropdown-header text-uppercase fs-7 fw-bold">AI Learning Tools</h6></li>
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center gap-2" href="{% url 'learning_logs:ask_notes' %}">
+                                    <i class="bi bi-chat-quote-fill text-primary"></i>
+                                    <div>
+                                        <div class="fw-semibold">Ask My Notes</div>
+                                        <small class="text-muted">Chat with your saved notes</small>
+                                    </div>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center gap-2" href="{% url 'learning_logs:summary_list' %}">
+                                    <i class="bi bi-card-checklist text-success"></i>
+                                    <div>
+                                        <div class="fw-semibold">AI Summaries</div>
+                                        <small class="text-muted">Review saved takeaways</small>
+                                    </div>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
                     <li class="nav-item">
-                        <a class="nav-link text-white-50" href="{% url 'learning_logs:entry_create' %}">
-                            <i class="bi bi-journal-plus me-1"></i> Add Entry
+                        <a class="nav-link {% if request.resolver_match.url_name == 'quiz_history' %}active text-white fw-bold{% endif %}" href="{% url 'learning_logs:quiz_history' %}">
+                            <i class="bi bi-mortarboard me-1"></i> Quiz History
                         </a>
                     </li>
                 </ul>
@@ -57,14 +86,14 @@
                 <!-- Search form in navbar -->
                 <form class="d-flex my-2 my-lg-0 me-lg-3" action="{% url 'learning_logs:search' %}" method="get" role="search">
                     <div class="input-group input-group-sm">
-                        <input class="form-control" type="search" name="q" placeholder="Search topics & notes..." aria-label="Search" value="{{ request.GET.q|default:'' }}">
+                        <input class="form-control" type="search" name="q" placeholder="Search notes & topics..." aria-label="Search" value="{{ request.GET.q|default:'' }}">
                         <button class="btn btn-primary" type="submit" aria-label="Search button">
                             <i class="bi bi-search"></i>
                         </button>
                     </div>
                 </form>
 
-                <!-- User profile & Logout -->
+                <!-- User Profile & Actions -->
                 <ul class="navbar-nav align-items-lg-center">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle text-white d-flex align-items-center gap-1" href="#" id="userMenuDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -75,8 +104,9 @@
                             <li><h6 class="dropdown-header">Signed in as <strong>{{ user.username }}</strong></h6></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'learning_logs:dashboard' %}"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>
-                            <li><a class="dropdown-item" href="{% url 'learning_logs:topic_list' %}"><i class="bi bi-folder2 me-2"></i>My Topics</a></li>
-                            <li><a class="dropdown-item" href="{% url 'learning_logs:topic_create' %}"><i class="bi bi-plus-circle me-2"></i>New Topic</a></li>
+                            <li><a class="dropdown-item" href="{% url 'learning_logs:topic_create' %}"><i class="bi bi-folder-plus me-2"></i>New Topic</a></li>
+                            <li><a class="dropdown-item" href="{% url 'learning_logs:entry_create' %}"><i class="bi bi-journal-plus me-2"></i>New Note Entry</a></li>
+                            <li><a class="dropdown-item" href="{% url 'learning_logs:ask_notes' %}"><i class="bi bi-stars me-2 text-warning"></i>Ask My Notes</a></li>
                             {% if user.is_staff %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'admin:index' %}"><i class="bi bi-gear me-2"></i>Django Admin</a></li>
@@ -101,7 +131,7 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="btn btn-primary btn-sm px-3" href="{% url 'learning_logs:register' %}">
+                        <a class="btn btn-primary btn-sm px-3 shadow-sm" href="{% url 'learning_logs:register' %}">
                             <i class="bi bi-person-plus-fill me-1"></i> Register Free
                         </a>
                     </li>
@@ -147,12 +177,12 @@
         <div class="container text-center">
             <div class="row align-items-center gy-2">
                 <div class="col-md-6 text-md-start">
-                    <div class="fw-semibold text-white">Personal Knowledge & Log Management System</div>
-                    <small class="text-white-50">Empowering continuous learning, structured reflection, and topic documentation.</small>
+                    <div class="fw-semibold text-white">AI-Powered Personal Knowledge &amp; Learning Management System</div>
+                    <small class="text-white-50">Intelligent knowledge synthesis, AI quizzes, and privacy-first note retrieval.</small>
                 </div>
                 <div class="col-md-6 text-md-end">
                     <span class="badge bg-secondary me-2">Python 3.14 &bull; Django 5.1</span>
-                    <small class="text-white-50">&copy; 2026 KnowledgeLog. Built with Django &amp; Bootstrap 5.</small>
+                    <small class="text-white-50">&copy; 2026 AI KnowledgeHub. Portfolio-ready implementation.</small>
                 </div>
             </div>
         </div>

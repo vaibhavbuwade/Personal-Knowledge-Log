@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Dashboard - Personal Knowledge & Log Management System{% endblock %}
+{% block title %}Dashboard - AI-Powered Personal Knowledge System{% endblock %}
 
 {% block breadcrumbs %}
 <nav aria-label="breadcrumb">
@@ -17,72 +17,92 @@
         <h2 class="fw-bold mb-1 text-dark">
             Welcome, {{ user.username }}! <span class="fs-4">👋</span>
         </h2>
-        <p class="text-muted mb-0">Here is a summary of your personal knowledge repository and recent logs.</p>
+        <p class="text-muted mb-0">Your personal AI knowledge base, learning logs, and self-testing hub.</p>
     </div>
-    <div class="col-md-5 text-md-end d-flex gap-2 justify-content-md-end">
+    <div class="col-md-5 text-md-end d-flex gap-2 justify-content-md-end flex-wrap">
+        <a href="{% url 'learning_logs:ask_notes' %}" class="btn btn-warning shadow-sm text-dark fw-semibold">
+            <i class="bi bi-stars me-1"></i> Ask My Notes
+        </a>
         <a href="{% url 'learning_logs:topic_create' %}" class="btn btn-primary shadow-sm">
-            <i class="bi bi-folder-plus me-1"></i> Add Topic
+            <i class="bi bi-folder-plus me-1"></i> New Topic
         </a>
         <a href="{% url 'learning_logs:entry_create' %}" class="btn btn-outline-primary shadow-sm">
-            <i class="bi bi-journal-plus me-1"></i> Add Entry
+            <i class="bi bi-journal-plus me-1"></i> New Entry
         </a>
     </div>
 </div>
 
 <!-- Statistics Cards -->
 <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-lg-4">
-        <div class="card stat-card shadow-sm h-100">
-            <div class="card-body d-flex align-items-center justify-content-between p-3 p-md-4">
-                <div>
-                    <span class="text-muted fw-semibold text-uppercase small">Total Topics</span>
+    <div class="col-6 col-lg-3">
+        <div class="card stat-card shadow-sm h-100 border-0 border-start border-primary border-4">
+            <div class="card-body p-3">
+                <span class="text-muted fw-semibold text-uppercase small">Total Topics</span>
+                <div class="d-flex align-items-center justify-content-between mt-2">
                     <h2 class="display-6 fw-bold mb-0 text-dark">{{ total_topics }}</h2>
-                    <a href="{% url 'learning_logs:topic_list' %}" class="small text-primary text-decoration-none fw-semibold">
-                        View all topics &rarr;
-                    </a>
-                </div>
-                <div class="stat-icon bg-blue-light">
-                    <i class="bi bi-folder2-open"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-sm-6 col-lg-4">
-        <div class="card stat-card stat-entries shadow-sm h-100">
-            <div class="card-body d-flex align-items-center justify-content-between p-3 p-md-4">
-                <div>
-                    <span class="text-muted fw-semibold text-uppercase small">Learning Entries</span>
-                    <h2 class="display-6 fw-bold mb-0 text-dark">{{ total_entries }}</h2>
-                    <span class="small text-muted">Across all your topics</span>
-                </div>
-                <div class="stat-icon bg-teal-light">
-                    <i class="bi bi-journal-text"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-sm-12 col-lg-4">
-        <div class="card shadow-sm h-100 border-0 bg-dark text-white">
-            <div class="card-body p-3 p-md-4 d-flex flex-column justify-content-between">
-                <div>
-                    <span class="text-white-50 text-uppercase small fw-semibold">Quick Search</span>
-                    <h6 class="fw-bold mt-1 mb-2">Find Notes Instantly</h6>
-                </div>
-                <form action="{% url 'learning_logs:search' %}" method="get" class="mt-2">
-                    <div class="input-group">
-                        <input type="text" name="q" class="form-control form-control-sm border-0" placeholder="Type a keyword...">
-                        <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search"></i></button>
+                    <div class="stat-icon bg-primary-subtle text-primary p-2 rounded">
+                        <i class="bi bi-folder2-open fs-4"></i>
                     </div>
-                </form>
+                </div>
+                <a href="{% url 'learning_logs:topic_list' %}" class="small text-primary text-decoration-none fw-semibold mt-2 d-inline-block">
+                    View topics &rarr;
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <div class="card stat-card shadow-sm h-100 border-0 border-start border-success border-4">
+            <div class="card-body p-3">
+                <span class="text-muted fw-semibold text-uppercase small">Learning Entries</span>
+                <div class="d-flex align-items-center justify-content-between mt-2">
+                    <h2 class="display-6 fw-bold mb-0 text-dark">{{ total_entries }}</h2>
+                    <div class="stat-icon bg-success-subtle text-success p-2 rounded">
+                        <i class="bi bi-journal-text fs-4"></i>
+                    </div>
+                </div>
+                <a href="{% url 'learning_logs:entry_list' %}" class="small text-success text-decoration-none fw-semibold mt-2 d-inline-block">
+                    Browse all notes &rarr;
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <div class="card stat-card shadow-sm h-100 border-0 border-start border-info border-4">
+            <div class="card-body p-3">
+                <span class="text-muted fw-semibold text-uppercase small">Quizzes Attempted</span>
+                <div class="d-flex align-items-center justify-content-between mt-2">
+                    <h2 class="display-6 fw-bold mb-0 text-dark">{{ total_quizzes_attempted }}</h2>
+                    <div class="stat-icon bg-info-subtle text-info p-2 rounded">
+                        <i class="bi bi-mortarboard fs-4"></i>
+                    </div>
+                </div>
+                <a href="{% url 'learning_logs:quiz_history' %}" class="small text-info text-decoration-none fw-semibold mt-2 d-inline-block">
+                    Quiz history &rarr;
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <div class="card stat-card shadow-sm h-100 border-0 border-start border-warning border-4">
+            <div class="card-body p-3">
+                <span class="text-muted fw-semibold text-uppercase small">Avg Quiz Score</span>
+                <div class="d-flex align-items-center justify-content-between mt-2">
+                    <h2 class="display-6 fw-bold mb-0 text-dark">{{ avg_score }}%</h2>
+                    <div class="stat-icon bg-warning-subtle text-warning p-2 rounded">
+                        <i class="bi bi-award fs-4"></i>
+                    </div>
+                </div>
+                <span class="small text-muted mt-2 d-inline-block">Overall mastery rate</span>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Main Dashboard Grid -->
-<div class="row g-4">
+<div class="row g-4 mb-4">
     <!-- Recently Updated Topics -->
     <div class="col-lg-6">
         <div class="card shadow-sm h-100">
@@ -100,7 +120,7 @@
                                 <div class="d-flex w-100 justify-content-between align-items-start mb-1">
                                     <h6 class="mb-0 fw-semibold text-primary">{{ topic.title }}</h6>
                                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">
-                                        {{ topic.entries.count }} {% if topic.entries.count == 1 %}entry{% else %}entries{% endif %}
+                                        {{ topic.entries.count }} {% if topic.entries.count == 1 %}note{% else %}notes{% endif %}
                                     </span>
                                 </div>
                                 {% if topic.description %}
@@ -113,11 +133,9 @@
                         {% endfor %}
                     </div>
                 {% else %}
-                    <div class="empty-state p-4">
-                        <div class="empty-state-icon text-muted">
-                            <i class="bi bi-folder-x"></i>
-                        </div>
-                        <h6 class="fw-bold">No Topics Created Yet</h6>
+                    <div class="text-center p-4">
+                        <i class="bi bi-folder-x fs-1 text-muted"></i>
+                        <h6 class="fw-bold mt-2">No Topics Created Yet</h6>
                         <p class="text-muted small mb-3">Create your first topic to start recording notes and concepts.</p>
                         <a href="{% url 'learning_logs:topic_create' %}" class="btn btn-primary btn-sm">
                             <i class="bi bi-folder-plus me-1"></i> Create First Topic
@@ -128,18 +146,14 @@
         </div>
     </div>
 
-    <!-- Recently Added Entries -->
+    <!-- Recent Learning Entries with AI Action Buttons -->
     <div class="col-lg-6">
         <div class="card shadow-sm h-100">
             <div class="card-header bg-white d-flex align-items-center justify-content-between py-3">
                 <span class="fw-bold text-dark d-flex align-items-center gap-2">
                     <i class="bi bi-journal-check text-success"></i> Recent Learning Entries
                 </span>
-                {% if total_topics > 0 %}
-                    <a href="{% url 'learning_logs:entry_create' %}" class="btn btn-sm btn-outline-success">
-                        <i class="bi bi-plus-lg"></i> New Entry
-                    </a>
-                {% endif %}
+                <a href="{% url 'learning_logs:entry_list' %}" class="btn btn-sm btn-outline-success">View All Notes</a>
             </div>
             <div class="card-body p-0">
                 {% if recent_entries %}
@@ -150,21 +164,19 @@
                                     <a href="{% url 'learning_logs:topic_detail' entry.topic.id %}#entry-{{ entry.id }}" class="fw-semibold text-dark text-decoration-none">
                                         {{ entry.title }}
                                     </a>
-                                    <a href="{% url 'learning_logs:topic_detail' entry.topic.id %}" class="badge bg-secondary-subtle text-secondary border text-decoration-none">
+                                    <span class="badge bg-light text-secondary border">
                                         {{ entry.topic.title }}
-                                    </a>
+                                    </span>
                                 </div>
-                                <p class="mb-2 text-muted small">
-                                    {{ entry.snippet|truncatechars:110 }}
-                                </p>
-                                <div class="d-flex justify-content-between align-items-center text-muted small">
-                                    <span><i class="bi bi-calendar3 me-1"></i> {{ entry.created_at|date:"M d, Y" }}</span>
-                                    <div class="d-flex gap-2">
-                                        <a href="{% url 'learning_logs:entry_edit' entry.id %}" class="text-primary text-decoration-none" title="Edit entry">
-                                            <i class="bi bi-pencil-square"></i> Edit
+                                <p class="text-muted small mb-2 text-truncate">{{ entry.snippet }}</p>
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>{{ entry.created_at|date:"M d, Y" }}</small>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'learning_logs:entry_summarize' entry.id %}" class="btn btn-outline-primary btn-sm" title="Summarize with AI">
+                                            <i class="bi bi-stars"></i> Summarize
                                         </a>
-                                        <a href="{% url 'learning_logs:entry_delete' entry.id %}" class="text-danger text-decoration-none" title="Delete entry">
-                                            <i class="bi bi-trash"></i>
+                                        <a href="{% url 'learning_logs:quiz_generate' entry.id %}" class="btn btn-outline-info btn-sm" title="Generate AI Quiz">
+                                            <i class="bi bi-mortarboard"></i> Quiz
                                         </a>
                                     </div>
                                 </div>
@@ -172,27 +184,111 @@
                         {% endfor %}
                     </div>
                 {% else %}
-                    <div class="empty-state p-4">
-                        <div class="empty-state-icon text-muted">
-                            <i class="bi bi-journal-x"></i>
-                        </div>
-                        <h6 class="fw-bold">No Learning Entries Yet</h6>
-                        <p class="text-muted small mb-3">
-                            {% if total_topics == 0 %}
-                                Once you create a topic, you can begin adding learning notes to it.
-                            {% else %}
-                                Select one of your topics and write your first dated learning log!
-                            {% endif %}
-                        </p>
+                    <div class="text-center p-4">
+                        <i class="bi bi-journal-x fs-1 text-muted"></i>
+                        <h6 class="fw-bold mt-2">No Learning Entries Yet</h6>
+                        <p class="text-muted small mb-3">Add notes to topics to unlock AI summaries, quizzes, and Q&A.</p>
                         {% if total_topics > 0 %}
                             <a href="{% url 'learning_logs:entry_create' %}" class="btn btn-success btn-sm">
-                                <i class="bi bi-pencil-square me-1"></i> Write First Entry
-                            </a>
-                        {% else %}
-                            <a href="{% url 'learning_logs:topic_create' %}" class="btn btn-outline-primary btn-sm">
-                                <i class="bi bi-folder-plus me-1"></i> Create Topic First
+                                <i class="bi bi-journal-plus me-1"></i> Add First Note
                             </a>
                         {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Secondary Row: Recent Quiz Scores & Recent AI Summaries -->
+<div class="row g-4">
+    <!-- Recent Quiz Scores -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white d-flex align-items-center justify-content-between py-3">
+                <span class="fw-bold text-dark d-flex align-items-center gap-2">
+                    <i class="bi bi-award-fill text-warning"></i> Recent Quiz Attempts
+                </span>
+                <a href="{% url 'learning_logs:quiz_history' %}" class="btn btn-sm btn-outline-secondary">Quiz History</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_attempts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small">
+                                <tr>
+                                    <th>Quiz / Entry</th>
+                                    <th>Score</th>
+                                    <th>Percentage</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for attempt in recent_attempts %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">{{ attempt.quiz.title }}</div>
+                                        <small class="text-muted">{{ attempt.quiz.entry.topic.title }}</small>
+                                    </td>
+                                    <td>{{ attempt.score }}/{{ attempt.total_questions }}</td>
+                                    <td>
+                                        {% if attempt.percentage >= 80 %}
+                                            <span class="badge bg-success">{{ attempt.percentage }}%</span>
+                                        {% elif attempt.percentage >= 50 %}
+                                            <span class="badge bg-warning text-dark">{{ attempt.percentage }}%</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">{{ attempt.percentage }}%</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="small text-muted">{{ attempt.attempted_at|timesince }} ago</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center p-4">
+                        <i class="bi bi-question-circle fs-1 text-muted"></i>
+                        <h6 class="fw-bold mt-2">No Quizzes Attempted Yet</h6>
+                        <p class="text-muted small mb-0">Click "Quiz" on any of your learning notes to generate an interactive test!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent AI Summaries -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white d-flex align-items-center justify-content-between py-3">
+                <span class="fw-bold text-dark d-flex align-items-center gap-2">
+                    <i class="bi bi-stars text-primary"></i> Saved AI Summaries
+                </span>
+                <a href="{% url 'learning_logs:summary_list' %}" class="btn btn-sm btn-outline-secondary">All Summaries</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_summaries %}
+                    <div class="list-group list-group-flush">
+                        {% for summary in recent_summaries %}
+                            <a href="{% url 'learning_logs:entry_summarize' summary.entry.id %}" class="list-group-item list-group-item-action p-3">
+                                <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                                    <h6 class="mb-0 fw-semibold text-dark">{{ summary.entry.title }}</h6>
+                                    {% if summary.is_mock %}
+                                        <span class="badge bg-secondary-subtle text-secondary border">Demo Mode</span>
+                                    {% else %}
+                                        <span class="badge bg-success-subtle text-success border">AI Generated</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-muted small mb-1 text-truncate">{{ summary.summary_text }}</p>
+                                <small class="text-muted"><i class="bi bi-clock me-1"></i>Saved {{ summary.created_at|timesince }} ago</small>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center p-4">
+                        <i class="bi bi-card-text fs-1 text-muted"></i>
+                        <h6 class="fw-bold mt-2">No Summaries Generated Yet</h6>
+                        <p class="text-muted small mb-0">Use the "Summarize with AI" button on any note to generate concise takeaways!</p>
                     </div>
                 {% endif %}
             </div>

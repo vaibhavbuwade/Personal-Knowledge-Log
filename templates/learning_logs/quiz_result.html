@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}Quiz Results: {{ quiz.title }} - KnowledgeLog{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'learning_logs:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'learning_logs:quiz_history' %}">Quiz History</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Quiz Result</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <!-- Score Summary Banner -->
+        <div class="card shadow-sm border-0 mb-4 text-center overflow-hidden">
+            <div class="card-body p-4 p-md-5 {% if percentage >= 80 %}bg-success-subtle text-success{% elif percentage >= 50 %}bg-warning-subtle text-warning-emphasis{% else %}bg-danger-subtle text-danger{% endif %}">
+                <span class="badge {% if percentage >= 80 %}bg-success{% elif percentage >= 50 %}bg-warning text-dark{% else %}bg-danger{% endif %} fs-6 px-3 py-2 rounded-pill mb-3">
+                    {% if percentage >= 80 %}
+                        <i class="bi bi-trophy-fill me-1"></i> Outstanding Performance!
+                    {% elif percentage >= 50 %}
+                        <i class="bi bi-hand-thumbs-up-fill me-1"></i> Good Attempt!
+                    {% else %}
+                        <i class="bi bi-arrow-repeat me-1"></i> Needs Revision
+                    {% endif %}
+                </span>
+
+                <h1 class="display-3 fw-bold mb-1">{{ score }} / {{ total_questions }}</h1>
+                <h4 class="fw-bold mb-3">{{ percentage }}% Score</h4>
+
+                <p class="lead fs-6 mb-4 col-md-8 mx-auto text-dark">
+                    Your answers were graded by the server. Review the detailed breakdowns and explanations below to reinforce your knowledge.
+                </p>
+
+                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                    <a href="{% url 'learning_logs:quiz_take' quiz.id %}" class="btn btn-primary shadow-sm">
+                        <i class="bi bi-arrow-repeat me-1"></i> Retake This Quiz
+                    </a>
+                    <a href="{% url 'learning_logs:quiz_generate' quiz.entry.id %}" class="btn btn-outline-dark shadow-sm">
+                        <i class="bi bi-plus-circle me-1"></i> Generate New Quiz
+                    </a>
+                    <a href="{% url 'learning_logs:quiz_history' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-journal-check me-1"></i> All Attempts
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Question-by-Question Breakdown -->
+        <h4 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2">
+            <i class="bi bi-card-checklist text-primary"></i> Detailed Answer Breakdown
+        </h4>
+
+        {% for item in graded_questions %}
+            <div class="card shadow-sm border mb-4 {% if item.is_correct %}border-success{% else %}border-danger{% endif %}">
+                <div class="card-header d-flex justify-content-between align-items-center py-3 {% if item.is_correct %}bg-success-subtle text-success-emphasis{% else %}bg-danger-subtle text-danger-emphasis{% endif %}">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge {% if item.is_correct %}bg-success{% else %}bg-danger{% endif %} rounded-circle">Q{{ item.question.order }}</span>
+                        <h6 class="mb-0 fw-bold">{{ item.question.text }}</h6>
+                    </div>
+                    {% if item.is_correct %}
+                        <span class="badge bg-success"><i class="bi bi-check-lg me-1"></i> Correct (+1)</span>
+                    {% else %}
+                        <span class="badge bg-danger"><i class="bi bi-x-lg me-1"></i> Incorrect (0)</span>
+                    {% endif %}
+                </div>
+
+                <div class="card-body p-4">
+                    <div class="mb-3">
+                        <strong class="text-muted small text-uppercase d-block mb-1">Your Selected Answer:</strong>
+                        {% if item.selected_choice %}
+                            <div class="p-2 rounded {% if item.is_correct %}bg-success-subtle text-success border border-success{% else %}bg-danger-subtle text-danger border border-danger{% endif %}">
+                                <i class="bi {% if item.is_correct %}bi-check-circle-fill{% else %}bi-x-circle-fill{% endif %} me-1"></i>
+                                {{ item.selected_choice.text }}
+                            </div>
+                        {% else %}
+                            <div class="p-2 rounded bg-secondary-subtle text-muted border">
+                                <em>No answer selected</em>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    {% if not item.is_correct and item.correct_choice %}
+                        <div class="mb-3">
+                            <strong class="text-muted small text-uppercase d-block mb-1">Correct Answer:</strong>
+                            <div class="p-2 rounded bg-success-subtle text-success border border-success">
+                                <i class="bi bi-check-circle-fill me-1"></i>
+                                {{ item.correct_choice.text }}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if item.explanation %}
+                        <div class="p-3 bg-light rounded border text-secondary small">
+                            <strong class="text-dark d-flex align-items-center gap-1 mb-1">
+                                <i class="bi bi-info-circle-fill text-primary"></i> Explanation:
+                            </strong>
+                            {{ item.explanation }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+
+        <!-- Navigation Footer -->
+        <div class="text-center mb-5">
+            <a href="{% url 'learning_logs:topic_detail' quiz.entry.topic.id %}#entry-{{ quiz.entry.id }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Return to Note: {{ quiz.entry.title }}
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

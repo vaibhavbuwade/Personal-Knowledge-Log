@@ -1,7 +1,12 @@
-Django==5.1.15
-python-dotenv==1.2.4
-whitenoise==6.12.0
-gunicorn==26.2.0
-dj-database-url==3.1.2
 asgiref==3.12.1
+certifi==2026.10.19
+charset-normalizer==3.5.2
+dj-database-url==3.1.2
+Django==5.1.15
+gunicorn==26.2.0
+idna==3.20
+python-dotenv==1.2.4
+requests==2.34.2
 sqlparse==0.6.0
+urllib3==2.8.0
+whitenoise==6.12.0
