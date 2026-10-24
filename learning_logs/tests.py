@@ -888,3 +888,186 @@ class PasswordResetWorkflowTests(TestCase):
         response = self.client.get(confirm_url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Password Reset Link Invalid")
+
+
+class DocumentAssistantAndTextImproverTests(TestCase):
+    """Automated tests for AI Document Studio, user-provided text Q&A, and text improvement."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='docuser',
+            email='docuser@example.com',
+            password='DocPassword123!'
+        )
+        self.other_user = User.objects.create_user(
+            username='otheruser',
+            email='otheruser@example.com',
+            password='OtherPassword123!'
+        )
+        self.topic = Topic.objects.create(
+            user=self.user,
+            title='Machine Learning Notes',
+            description='Supervised and unsupervised learning.'
+        )
+        self.entry = Entry.objects.create(
+            topic=self.topic,
+            title='Gradient Descent Basics',
+            content='Gradient descent is an optimization algorithm used to minimize cost functions by iteratively moving in the direction of steepest descent.'
+        )
+        self.other_topic = Topic.objects.create(
+            user=self.other_user,
+            title='Secret Research',
+            description='Not for docuser'
+        )
+        self.other_entry = Entry.objects.create(
+            topic=self.other_topic,
+            title='Confidential Note',
+            content='Secret details that docuser must never access.'
+        )
+        self.client.force_login(self.user)
+
+    def test_document_assistant_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('learning_logs:document_assistant'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('learning_logs:login'), response.url)
+
+    def test_document_assistant_get_page(self):
+        response = self.client.get(reverse('learning_logs:document_assistant'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'learning_logs/document_assistant.html')
+        self.assertIn('form', response.context)
+
+    def test_document_assistant_preload_saved_note(self):
+        url = f"{reverse('learning_logs:document_assistant')}?note_id={self.entry.id}&task=improve"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['preloaded_entry'], self.entry)
+        self.assertEqual(response.context['form'].initial['document_text'], self.entry.content)
+
+    def test_document_assistant_summarize_user_provided_text(self):
+        user_text = (
+            "Convolutional neural networks apply kernel filters over feature maps. "
+            "Pooling layers downsample spatial representations. "
+            "Dense classification layers output final softmax probabilities."
+        )
+        response = self.client.post(reverse('learning_logs:document_assistant'), {
+            'action_type': 'analyze',
+            'document_text': user_text,
+            'task': 'summarize',
+        })
+        self.assertEqual(response.status_code, 200)
+        result_data = response.context['result_data']
+        self.assertIsNotNone(result_data)
+        self.assertEqual(result_data['task'], 'summarize')
+        self.assertTrue(len(result_data['result']) > 0)
+
+    def test_document_assistant_key_points_task(self):
+        user_text = (
+            "First concept: overfitting happens when model memorizes training noise. "
+            "Second concept: regularization penalizes large weight magnitudes. "
+            "Third concept: cross validation validates generalization accuracy."
+        )
+        response = self.client.post(reverse('learning_logs:document_assistant'), {
+            'action_type': 'analyze',
+            'document_text': user_text,
+            'task': 'key_points',
+        })
+        self.assertEqual(response.status_code, 200)
+        result_data = response.context['result_data']
+        self.assertEqual(result_data['task'], 'key_points')
+        self.assertTrue(len(result_data['key_points']) >= 2)
+
+    def test_document_assistant_improve_task(self):
+        raw_text = "u should check ur hyperparameters w/ cross validation."
+        response = self.client.post(reverse('learning_logs:document_assistant'), {
+            'action_type': 'analyze',
+            'document_text': raw_text,
+            'task': 'improve',
+        })
+        self.assertEqual(response.status_code, 200)
+        result_data = response.context['result_data']
+        self.assertEqual(result_data['task'], 'improve')
+        self.assertIn('you should check your hyperparameters with', result_data['result'].lower())
+
+    def test_document_assistant_qa_task_matched(self):
+        doc_text = "Support Vector Machines seek an optimal hyperplane with maximal margin between classes."
+        response = self.client.post(reverse('learning_logs:document_assistant'), {
+            'action_type': 'analyze',
+            'document_text': doc_text,
+            'task': 'qa',
+            'question': 'What do support vector machines seek?',
+        })
+        self.assertEqual(response.status_code, 200)
+        result_data = response.context['result_data']
+        self.assertEqual(result_data['task'], 'qa')
+        self.assertIn("optimal hyperplane", result_data['result'])
+
+    def test_document_assistant_qa_task_unmatched(self):
+        doc_text = "Python lists are mutable dynamic arrays implemented in C."
+        response = self.client.post(reverse('learning_logs:document_assistant'), {
+            'action_type': 'analyze',
+            'document_text': doc_text,
+            'task': 'qa',
+            'question': 'What is quantum teleportation?',
+        })
+        self.assertEqual(response.status_code, 200)
+        result_data = response.context['result_data']
+        self.assertIn("no relevant information was found", result_data['result'])
+
+    def test_document_assistant_save_as_note_success(self):
+        response = self.client.post(reverse('learning_logs:document_assistant'), {
+            'action_type': 'save_note',
+            'topic_id': self.topic.id,
+            'note_title': 'Saved AI Summary',
+            'note_content': 'Key points from AI Document Studio analysis.',
+        }, follow=True)
+        self.assertRedirects(response, reverse('learning_logs:topic_detail', kwargs={'topic_id': self.topic.id}))
+        new_entry = Entry.objects.filter(title='Saved AI Summary', topic=self.topic).first()
+        self.assertIsNotNone(new_entry)
+        self.assertEqual(new_entry.content, 'Key points from AI Document Studio analysis.')
+
+    def test_document_assistant_save_as_note_cross_user_denied(self):
+        response = self.client.post(reverse('learning_logs:document_assistant'), {
+            'action_type': 'save_note',
+            'topic_id': self.other_topic.id,
+            'note_title': 'Intruder Note',
+            'note_content': 'Should fail',
+        })
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(Entry.objects.filter(title='Intruder Note').exists())
+
+    def test_entry_improve_view_get(self):
+        url = reverse('learning_logs:entry_improve', kwargs={'entry_id': self.entry.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'learning_logs/entry_improve.html')
+        self.assertIn('improved_result', response.context)
+        self.assertEqual(response.context['entry'], self.entry)
+
+    def test_entry_improve_view_apply_changes(self):
+        url = reverse('learning_logs:entry_improve', kwargs={'entry_id': self.entry.id})
+        response = self.client.post(url, {
+            'action': 'apply',
+            'improved_content': 'Refined and perfected gradient descent notes.',
+        }, follow=True)
+        self.assertRedirects(response, reverse('learning_logs:topic_detail', kwargs={'topic_id': self.topic.id}))
+        self.entry.refresh_from_db()
+        self.assertEqual(self.entry.content, 'Refined and perfected gradient descent notes.')
+
+    def test_entry_improve_cross_user_forbidden(self):
+        url = reverse('learning_logs:entry_improve', kwargs={'entry_id': self.other_entry.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_ai_status_helper(self):
+        status = ai_service.get_ai_service_status()
+        self.assertIn('provider', status)
+        self.assertIn('is_live', status)
+        self.assertIn('message', status)
+        self.assertIsInstance(status['is_live'], bool)
+
+    def test_dev_otp_banner_output(self):
+        from .views import print_dev_otp_banner
+        print_dev_otp_banner('test@example.com', '123456', 'testuser')
+

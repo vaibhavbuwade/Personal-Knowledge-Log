@@ -15,11 +15,34 @@ from .models import (
 )
 from .forms import (
     UserRegistrationForm, TopicForm, EntryForm, QuickEntryForm,
-    EmailOrUsernameAuthenticationForm, RequestOTPForm, VerifyOTPForm
+    EmailOrUsernameAuthenticationForm, RequestOTPForm, VerifyOTPForm,
+    DocumentAssistantForm, ImproveTextForm
 )
 from . import ai_service
 
 logger = logging.getLogger(__name__)
+
+
+def print_dev_otp_banner(email: str, otp_code: str, username: str = ""):
+    """
+    Clearly outputs OTP to the terminal for local development and testing.
+    Explicitly labeled as development-only behavior to satisfy Feature 4.
+    """
+    banner = f"""
+================================================================================
+[LOCAL DEVELOPMENT ONLY] AI NOTES & DOCUMENT ASSISTANT - OTP VERIFICATION
+--------------------------------------------------------------------------------
+Account Username : {username or 'User'}
+Destination Email: {email}
+One-Time Password: {otp_code}
+Validity Window  : 5 Minutes (Single-Use Only)
+NOTE: This console output is for local development and demonstration only.
+In production, this code is securely dispatched via SMTP to the user's email.
+================================================================================
+"""
+    print(banner, flush=True)
+    logger.info(f"[DEV-ONLY OTP] Verification code for {email}: {otp_code}")
+
 
 
 # ===========================================================================
@@ -105,6 +128,9 @@ def login_view(request):
                 if user:
                     challenge, raw_otp = EmailOTP.create_challenge(email=email, user=user)
 
+                    # Explicitly output OTP in terminal for local development testing (Feature 4)
+                    print_dev_otp_banner(email, raw_otp, user.username)
+
                     # Send OTP email via configured email backend (Console backend by default in dev)
                     subject = "Your AI KnowledgeHub One-Time Verification Code"
                     body = (
@@ -113,7 +139,7 @@ def login_view(request):
                         f"    {raw_otp}\n\n"
                         f"This code will expire in 5 minutes.\n"
                         f"If you did not request this login code, you can safely ignore this email.\n\n"
-                        f"- The AI KnowledgeHub Team"
+                        f"- The AI Notes & Document Assistant Team"
                     )
                     try:
                         send_mail(
@@ -211,13 +237,17 @@ def resend_otp_view(request):
     user = User.objects.filter(email__iexact=email).first()
     if user:
         challenge, raw_otp = EmailOTP.create_challenge(email=email, user=user)
-        subject = "Your New AI KnowledgeHub Verification Code"
+
+        # Explicitly output OTP in terminal for local development testing (Feature 4)
+        print_dev_otp_banner(email, raw_otp, user.username)
+
+        subject = "Your New AI Notes & Document Assistant Verification Code"
         body = (
             f"Hello {user.username},\n\n"
             f"Your new one-time verification code is:\n\n"
             f"    {raw_otp}\n\n"
             f"This code will expire in 5 minutes.\n\n"
-            f"- The AI KnowledgeHub Team"
+            f"- The AI Notes & Document Assistant Team"
         )
         try:
             send_mail(
@@ -814,3 +844,139 @@ def search_view(request):
         'total_results': total_results,
     }
     return render(request, 'learning_logs/search_results.html', context)
+
+
+# ===========================================================================
+# AI Feature Four: AI Document & Text Assistant Studio
+# ===========================================================================
+
+@login_required
+def document_assistant_view(request):
+    """
+    Interactive AI Document & Text Assistant Studio.
+    Supports user-provided text or existing notes for:
+    1. Summarization
+    2. Key points extraction
+    3. Writing improvement & style transformation
+    4. Grounded question answering strictly based on the provided document text
+    Enables saving the generated AI response or improved text directly as a note.
+    """
+    user = request.user
+    ai_status = ai_service.get_ai_service_status()
+    user_topics = Topic.objects.filter(user=user).order_by('title')
+
+    result_data = None
+    initial_text = ""
+    initial_task = "summarize"
+    initial_question = ""
+
+    # Pre-populate from query params if navigated from an existing note
+    note_id = request.GET.get('note_id')
+    preloaded_entry = None
+    if note_id:
+        preloaded_entry = get_object_or_404(Entry, id=note_id, topic__user=user)
+        initial_text = preloaded_entry.content
+        initial_task = request.GET.get('task', 'summarize')
+
+    if request.method == 'POST':
+        action_type = request.POST.get('action_type', 'analyze')
+
+        if action_type == 'save_note':
+            # Save the processed text or result as a new note
+            topic_id = request.POST.get('topic_id')
+            new_title = request.POST.get('note_title', '').strip()
+            content_to_save = request.POST.get('note_content', '').strip()
+
+            if not topic_id:
+                messages.error(request, "Please select a topic/category to save this note.")
+            elif not new_title:
+                messages.error(request, "Please provide a title for the new note.")
+            elif not content_to_save:
+                messages.error(request, "Content to save cannot be empty.")
+            else:
+                topic = get_object_or_404(Topic, id=topic_id, user=user)
+                new_entry = Entry.objects.create(
+                    topic=topic,
+                    title=new_title,
+                    content=content_to_save
+                )
+                messages.success(request, f"Successfully saved as a new note '{new_entry.title}' under '{topic.title}'!")
+                return redirect('learning_logs:topic_detail', topic_id=topic.id)
+
+        # Process document analysis
+        form = DocumentAssistantForm(request.POST, user=user)
+        if form.is_valid():
+            doc_text = form.cleaned_data['document_text']
+            task = form.cleaned_data['task']
+            question = form.cleaned_data.get('question', '')
+
+            result_data = ai_service.process_document_text(doc_text, task=task, question=question)
+            initial_text = doc_text
+            initial_task = task
+            initial_question = question
+        else:
+            messages.error(request, "Please check the form inputs below.")
+    else:
+        form = DocumentAssistantForm(
+            user=user,
+            initial={
+                'document_text': initial_text,
+                'task': initial_task,
+                'question': initial_question,
+                'selected_note': preloaded_entry.id if preloaded_entry else None,
+            }
+        )
+
+    context = {
+        'form': form,
+        'result_data': result_data,
+        'user_topics': user_topics,
+        'ai_status': ai_status,
+        'preloaded_entry': preloaded_entry,
+    }
+    return render(request, 'learning_logs/document_assistant.html', context)
+
+
+@login_required
+def entry_improve_view(request, entry_id):
+    """
+    AI Text Improver for a specific note.
+    Applies grammar correction, conciseness, technical structuring, or academic polish.
+    User can preview the improved text and optionally apply it to overwrite/update the note.
+    """
+    entry = get_object_or_404(Entry, id=entry_id, topic__user=request.user)
+    ai_status = ai_service.get_ai_service_status()
+
+    selected_style = request.GET.get('style', 'professional')
+    improved_result = None
+
+    if request.method == 'POST':
+        action = request.POST.get('action', 'improve')
+
+        if action == 'apply':
+            new_content = request.POST.get('improved_content', '').strip()
+            if new_content:
+                entry.content = new_content
+                entry.save()
+                messages.success(request, f"Note '{entry.title}' successfully updated with AI improvements!")
+                return redirect('learning_logs:topic_detail', topic_id=entry.topic.id)
+            else:
+                messages.error(request, "Improved content was empty. Changes not applied.")
+
+        form = ImproveTextForm(request.POST)
+        if form.is_valid():
+            selected_style = form.cleaned_data['style']
+            improved_result = ai_service.improve_note_text(entry.content, style=selected_style)
+    else:
+        form = ImproveTextForm(initial={'style': selected_style})
+        improved_result = ai_service.improve_note_text(entry.content, style=selected_style)
+
+    context = {
+        'entry': entry,
+        'form': form,
+        'improved_result': improved_result,
+        'selected_style': selected_style,
+        'ai_status': ai_status,
+    }
+    return render(request, 'learning_logs/entry_improve.html', context)
+

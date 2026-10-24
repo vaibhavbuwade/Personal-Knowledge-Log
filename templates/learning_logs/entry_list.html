@@ -84,10 +84,13 @@
                     <div class="card-footer bg-light border-top p-2 d-flex justify-content-between align-items-center">
                         <div class="btn-group btn-group-sm">
                             <a href="{% url 'learning_logs:entry_summarize' entry.id %}" class="btn btn-outline-primary" title="AI Summary">
-                                <i class="bi bi-stars"></i> Summarize
+                                <i class="bi bi-stars"></i>
+                            </a>
+                            <a href="{% url 'learning_logs:entry_improve' entry.id %}" class="btn btn-outline-success" title="Improve text with AI">
+                                <i class="bi bi-brush"></i>
                             </a>
                             <a href="{% url 'learning_logs:quiz_generate' entry.id %}" class="btn btn-outline-info" title="AI Quiz">
-                                <i class="bi bi-mortarboard"></i> Quiz
+                                <i class="bi bi-mortarboard"></i>
                             </a>
                         </div>
                         <div class="btn-group btn-group-sm">

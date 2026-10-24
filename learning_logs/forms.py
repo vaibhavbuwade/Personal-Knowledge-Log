@@ -224,3 +224,83 @@ class VerifyOTPForm(forms.Form):
         if not otp.isdigit():
             raise ValidationError("Verification code must consist of digits only.")
         return otp
+
+
+class DocumentAssistantForm(forms.Form):
+    """
+    Form for AI Document Assistant to analyze user-provided text or existing notes:
+    summarize, extract key points, improve text, or answer questions strictly grounded in the document.
+    """
+    TASK_CHOICES = [
+        ('summarize', 'Summarize Document & Core Takeaways'),
+        ('key_points', 'Extract Key Points & Action Items'),
+        ('improve', 'Improve & Polish Writing Style'),
+        ('qa', 'Ask Question About Document Content'),
+    ]
+
+    selected_note = forms.ModelChoiceField(
+        queryset=Entry.objects.none(),
+        required=False,
+        empty_label="-- Or choose from one of your saved notes --",
+        widget=forms.Select(attrs={'class': 'form-select', 'id': 'selected_note_select'})
+    )
+    document_text = forms.CharField(
+        label="Document or Note Text",
+        widget=forms.Textarea(attrs={
+            'class': 'form-control font-monospace small',
+            'rows': 8,
+            'placeholder': 'Paste your study notes, document excerpt, assignment prompt, or draft text here...',
+            'id': 'document_text_area',
+            'required': True,
+        }),
+        help_text="Provide text to summarize, extract key points from, polish, or ask questions about."
+    )
+    task = forms.ChoiceField(
+        label="AI Capability",
+        choices=TASK_CHOICES,
+        initial='summarize',
+        widget=forms.Select(attrs={'class': 'form-select', 'id': 'task_select'})
+    )
+    question = forms.CharField(
+        label="Your Question About This Document",
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'e.g. What is the core theorem or algorithm explained here?',
+            'id': 'question_input',
+        }),
+        help_text="Required when 'Ask Question About Document Content' is selected."
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user:
+            self.fields['selected_note'].queryset = Entry.objects.filter(
+                topic__user=user
+            ).select_related('topic').order_by('-created_at')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        task = cleaned_data.get('task')
+        question = cleaned_data.get('question', '').strip()
+        if task == 'qa' and not question:
+            self.add_error('question', "Please enter a question to ask about the provided text.")
+        return cleaned_data
+
+
+class ImproveTextForm(forms.Form):
+    """Form for selecting text rewriting and polishing styles."""
+    STYLE_CHOICES = [
+        ('professional', 'Professional & Polished (Clear flow, correct punctuation, formal tone)'),
+        ('concise', 'Concise & Bulleted (High-density takeaways, removes wordiness)'),
+        ('technical', 'Technical & Structured (Implementation details, explicit terminology)'),
+        ('academic', 'Academic & Rigorous (Formal scholastic prose, analytical clarity)'),
+    ]
+
+    style = forms.ChoiceField(
+        label="Rewriting Style",
+        choices=STYLE_CHOICES,
+        initial='professional',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+

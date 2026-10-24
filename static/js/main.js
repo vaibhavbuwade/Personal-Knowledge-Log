@@ -16,4 +16,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize tooltips if any exist
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map((tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl));
+
+    // Responsive Sidebar Toggle
+    const sidebar = document.getElementById('appSidebar');
+    const toggleBtn = document.getElementById('sidebarToggleBtn');
+    const backdrop = document.getElementById('sidebarBackdrop');
+
+    function openSidebar() {
+        if (sidebar) sidebar.classList.add('show');
+        if (backdrop) backdrop.classList.add('show');
+    }
+
+    function closeSidebar() {
+        if (sidebar) sidebar.classList.remove('show');
+        if (backdrop) backdrop.classList.remove('show');
+    }
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (sidebar && sidebar.classList.contains('show')) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
+        });
+    }
+
+    if (backdrop) {
+        backdrop.addEventListener('click', closeSidebar);
+    }
 });

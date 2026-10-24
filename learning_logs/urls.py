@@ -64,8 +64,9 @@ urlpatterns = [
     path('entries/<int:entry_id>/edit/', views.entry_edit_view, name='entry_edit'),
     path('entries/<int:entry_id>/delete/', views.entry_delete_view, name='entry_delete'),
 
-    # AI Feature 1: Intelligent Notes Summarizer
+    # AI Feature 1: Intelligent Notes Summarizer & Improver
     path('entries/<int:entry_id>/summarize/', views.entry_summarize_view, name='entry_summarize'),
+    path('entries/<int:entry_id>/improve/', views.entry_improve_view, name='entry_improve'),
     path('summaries/', views.summary_list_view, name='summary_list'),
 
     # AI Feature 2: AI Quiz Generator & Attempts
@@ -78,6 +79,9 @@ urlpatterns = [
     path('ask-notes/<int:session_id>/', views.ask_notes_view, name='ask_notes_session'),
     path('ask-notes/new/', views.chat_new_view, name='chat_new'),
     path('ask-notes/<int:session_id>/clear/', views.chat_clear_view, name='chat_clear'),
+
+    # AI Feature 4: AI Document & Text Assistant Studio
+    path('document-assistant/', views.document_assistant_view, name='document_assistant'),
 
     # Global Search
     path('search/', views.search_view, name='search'),

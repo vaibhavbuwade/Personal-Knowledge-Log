@@ -91,6 +91,9 @@
                         <a href="{% url 'learning_logs:entry_summarize' entry.id %}" class="btn btn-sm btn-outline-primary" title="Summarize with AI">
                             <i class="bi bi-stars"></i> Summarize
                         </a>
+                        <a href="{% url 'learning_logs:entry_improve' entry.id %}" class="btn btn-sm btn-outline-success" title="Improve text with AI">
+                            <i class="bi bi-brush"></i> Improve
+                        </a>
                         <a href="{% url 'learning_logs:quiz_generate' entry.id %}" class="btn btn-sm btn-outline-info" title="Generate AI Quiz">
                             <i class="bi bi-mortarboard"></i> Quiz
                         </a>

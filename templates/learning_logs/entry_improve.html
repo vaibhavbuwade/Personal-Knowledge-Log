@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block title %}Improve Note: {{ entry.title }} - AI Notes & Document Assistant{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'learning_logs:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'learning_logs:topic_detail' entry.topic.id %}">{{ entry.topic.title }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page"><i class="bi bi-brush me-1"></i> Improve: {{ entry.title|truncatechars:30 }}</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row align-items-center mb-4 g-3">
+    <div class="col-md-8">
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge bg-light text-secondary border">{{ entry.topic.title }}</span>
+            <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>Created {{ entry.created_at|date:"M d, Y" }}</small>
+        </div>
+        <h2 class="fw-bold mb-1 text-dark d-flex align-items-center gap-2">
+            <i class="bi bi-stars text-primary"></i> AI Text Improver: {{ entry.title }}
+        </h2>
+        <p class="text-muted mb-0">Refine grammar, elevate vocabulary, structure technical takeaways, or condense into high-impact bullets.</p>
+    </div>
+    <div class="col-md-4 text-md-end">
+        <a href="{% url 'learning_logs:topic_detail' entry.topic.id %}#entry-{{ entry.id }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Return to Topic
+        </a>
+    </div>
+</div>
+
+<!-- Style Selection Bar -->
+<div class="card shadow-sm border-0 mb-4 bg-white">
+    <div class="card-body p-3">
+        <form method="post" class="row g-3 align-items-center">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="improve">
+            <div class="col-md-3">
+                <label for="{{ form.style.id_for_label }}" class="form-label mb-0 fw-semibold text-dark">
+                    <i class="bi bi-palette2 me-1 text-primary"></i> Select Rewriting Style:
+                </label>
+            </div>
+            <div class="col-md-6">
+                {{ form.style }}
+            </div>
+            <div class="col-md-3 d-grid">
+                <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+                    <i class="bi bi-arrow-repeat me-1"></i> Regenerate in this Style
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Side-by-Side Comparison -->
+<div class="row g-4 mb-4">
+    <!-- Original Text Column -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-dark d-flex align-items-center gap-2">
+                    <i class="bi bi-file-earmark-text text-secondary"></i> Original Note
+                </span>
+                <span class="badge bg-secondary-subtle text-secondary border">Original (Current)</span>
+            </div>
+            <div class="card-body p-4">
+                <div class="bg-light p-3 rounded border font-monospace small" style="white-space: pre-wrap; word-break: break-word; min-height: 250px;">{{ entry.content }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Improved Text Column -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100 border-start border-primary border-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-dark d-flex align-items-center gap-2">
+                    <i class="bi bi-magic text-primary"></i> AI Improved Version
+                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle text-capitalize">
+                        {{ selected_style }} Style
+                    </span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyImprovedText()" id="copyImprovedBtn">
+                        <i class="bi bi-clipboard me-1"></i> Copy
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div>
+                    {% if improved_result.changes_summary %}
+                    <div class="alert alert-info small py-2 mb-3">
+                        <i class="bi bi-info-circle-fill me-1"></i> <strong>Improvement Summary:</strong> {{ improved_result.changes_summary }}
+                    </div>
+                    {% endif %}
+
+                    <div class="bg-light p-3 rounded border font-monospace small mb-3" style="white-space: pre-wrap; word-break: break-word; min-height: 200px;" id="improvedContentArea">{{ improved_result.improved_text }}</div>
+                </div>
+
+                <!-- Action Controls: Apply to Note or Discard -->
+                <div class="pt-3 border-top mt-auto">
+                    <form method="post" class="d-flex gap-2 flex-wrap justify-content-end">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="apply">
+                        <input type="hidden" name="improved_content" value="{{ improved_result.improved_text }}">
+
+                        <a href="{% url 'learning_logs:topic_detail' entry.topic.id %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-x-circle me-1"></i> Keep Original
+                        </a>
+                        <button type="submit" class="btn btn-success btn-sm fw-semibold shadow-sm">
+                            <i class="bi bi-check-lg me-1"></i> Apply Changes to Note
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function copyImprovedText() {
+        const textElement = document.getElementById('improvedContentArea');
+        if (textElement) {
+            navigator.clipboard.writeText(textElement.innerText).then(() => {
+                const btn = document.getElementById('copyImprovedBtn');
+                if (btn) {
+                    btn.innerHTML = '<i class="bi bi-check2 text-success me-1"></i> Copied!';
+                    setTimeout(() => {
+                        btn.innerHTML = '<i class="bi bi-clipboard me-1"></i> Copy';
+                    }, 2000);
+                }
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            });
+        }
+    }
+</script>
+{% endblock %}
