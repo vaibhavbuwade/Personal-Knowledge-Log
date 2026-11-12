@@ -6,7 +6,7 @@
 [![Tests](https://img.shields.io/badge/Tests-84%20Passed-success?style=for-the-badge)](#automated-testing--quality-assurance)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
-A professional, full-stack, AI-augmented knowledge management and document analysis web application built with **Python 5 / Django 5.1**, **Bootstrap 5.3**, and **SQLite / PostgreSQL**. Engineered specifically as an internship-ready portfolio project for a B.Tech Artificial Intelligence & Machine Learning student.
+A professional, full-stack, AI-augmented knowledge management and document analysis web application built with **Python 3.10+ / Django 5.1**, **Bootstrap 5.3**, and **SQLite / PostgreSQL**. Engineered specifically as an internship-ready portfolio project for a B.Tech Artificial Intelligence & Machine Learning student.
 
 The system combines structured note organization, dual authentication (Password & Email OTP), an **AI Document Studio** (summarization, style-based text polishing, bullet point extraction, and grounded Q&A over user-provided text), automated quiz generation with tamper-proof server-side scoring, and a privacy-grounded **"Ask My Notes"** retrieval engine.
 
@@ -284,9 +284,10 @@ All user-authored texts are treated as untrusted reference data:
 
 ### Step-by-Step Instructions
 
-#### 1. Navigate to Project Directory
+#### 1. Clone the Repository
 ```bash
-cd /home/sukh/personal_knowledge_system
+git clone [https://github.com/vaibhavbuwade/Personal-Knowledge-Log.git](https://github.com/vaibhavbuwade/Personal-Knowledge-Log.git)
+cd Personal-Knowledge-Log
 ```
 
 #### 2. Create and Activate Virtual Environment
