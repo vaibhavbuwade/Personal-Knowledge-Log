@@ -421,19 +421,27 @@ AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
 
 ## Portfolio Screenshots Guide
 
-To showcase this project effectively on GitHub, LinkedIn, or in an internship portfolio, capture screenshots of the following workflows:
+## Application Showcase & Screenshots
 
-1. **Dashboard & Sidebar Layout** (`/dashboard/`):
-   - Shows sidebar navigation, quick action buttons, statistics cards, and recent notes.
-2. **AI Document Studio** (`/document-assistant/`):
-   - Shows pasted study text on the left and generated executive summary, key points, and direct notebook saving on the right.
-3. **Side-by-Side AI Text Improver** (`/entries/<id>/improve/`):
-   - Shows original text vs. AI improved text with style selection (*Professional*, *Technical*, etc.).
-4. **Interactive AI Quiz Interface & Server-Side Results** (`/quizzes/<id>/`):
-   - Shows 4-choice questions and the post-submission grading breakdown with percentage scores and rationale.
-5. **Terminal OTP Banner Demonstration**:
-   - Screenshot of the terminal running `runserver` displaying the `[LOCAL DEVELOPMENT ONLY]` OTP verification banner alongside the web browser login page.
+### 1. Personalized Knowledge Dashboard
+Overview of total topics, learning entries, recent notes, and saved AI summaries in a unified workspace[span_0](start_span)[span_0](end_span).
+![Dashboard](Dashboard.png)
 
+### 2. AI Document & Text Assistant (Document Studio)
+Interactive workspace to summarize study notes, extract key points, improve technical writing, and run grounded Q&A[span_1](start_span)[span_1](end_span).
+![Document Studio](DocStudio.png)
+
+### 3. AI-Generated Interactive Quiz Interface
+Server-side scored comprehension tests generated directly from saved learning notes[span_2](start_span)[span_2](end_span).
+![Quiz Interface](QuizInterface.png)
+
+### 4. Quiz Results & Detailed Answer Breakdown
+Instant grading with percentage scores, performance feedback, and explanations sourced from user notes[span_3](start_span)[span_3](end_span).
+![Quiz Results](QuizResults.png)
+
+### 5. Terminal OTP Authentication & Server Logs
+Console-based single-use One-Time Password (OTP) verification workflow and Django development server logs[span_4](start_span)[span_4](end_span).
+![Terminal OTP Output](Terminal.png)
 ---
 
 ## Troubleshooting FAQ
