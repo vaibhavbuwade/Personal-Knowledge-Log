@@ -460,18 +460,21 @@ Check that `AI_API_KEY` is not empty in your `.env` file and that `AI_PROVIDER` 
 
 ---
 
-## Internship Interview Defense Guide
+## Architecture & Engineering Decisions
 
-When presenting this project during technical internship interviews, highlight these engineering decisions:
+### 1. Security-First Authentication (Single-Use OTP & Rate Limiting)
+* **Rationale:** Standard password-only authentication is vulnerable to credential stuffing. Implementing a time-bound (5-minute validity), single-use One-Time Password (OTP) adds a strong second verification layer.
+* **Local Demo Design:** In local development mode, OTPs are routed to the server console (`EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'`) so reviewers and recruiters can test the complete MFA flow immediately without configuring external SMTP credentials.
 
-1. **Why Django instead of a microframework like Flask/FastAPI?**
-   > *"Django provides robust, battle-tested built-ins for ORM, session authentication, CSRF protection, and migration management. This allowed me to focus on business logic, object-level security, and decoupled AI services without reinventing secure authentication."*
+### 2. Server-Side Quiz Grading & Anti-Tampering
+* **Rationale:** Evaluating quiz answers on the frontend exposes correct options in network payloads or DOM state. All quiz submissions are graded strictly on the Django backend against stored ground-truth records before returning score breakdowns.
 
-2. **How does the OTP system prevent user enumeration?**
-   > *"When a user requests an OTP or password reset, the server returns the exact same generic confirmation message ('If an account exists, a code was sent') regardless of whether the email is present in the database. This prevents attackers from brute-forcing valid email addresses."*
+### 3. Hybrid AI Execution Mode (Zero-Cost Demo + Live API Support)
+* **Rationale:** External LLM APIs often fail during portfolio reviews due to expired keys or rate limits. The system automatically falls back to a deterministic Local Demo Mode when no API key is configured, ensuring 100% uptime for every feature (Summarization, Quiz Generation, and Document Studio) while remaining seamlessly upgradeable to live LLM endpoints via environment variables.
 
-3. **How is the AI integration safeguarded against prompt injection?**
-   > *"User notes are treated as untrusted reference data. They are length-capped, sanitized of null bytes, and enclosed in explicit boundary tags (`<notes>`, `<document>`) with strict system prompt directives instructing the model never to execute instructions embedded within the text."*
+### 4. Relational Schema & Data Integrity
+* **Rationale:** Built on Django ORM with strict foreign-key relationships (`User -> Topic -> LearningEntry -> QuizAttempt`) to enforce multi-tenant data isolation—ensuring users can only query, summarize, or test themselves on their own private knowledge base.
 
-4. **How is quiz cheating prevented?**
-   > *"Scoring is strictly server-side. The client HTML never receives `is_correct` flags or solution keys. Grading validates submitted choice IDs against the database record."*
+### 5. Monolithic Full-Stack Architecture (Django + Server-Rendered Templates)
+* **Rationale:** Choosing Django's MVT architecture over a split SPA/API setup eliminates CORS overhead, simplifies CSRF protection out of the box, and reduces deployment complexity while keeping page loads fast and predictable.
+*
